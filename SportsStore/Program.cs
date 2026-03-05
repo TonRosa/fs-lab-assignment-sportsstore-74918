@@ -63,7 +63,8 @@ try
     builder.Services.AddRazorPages();
     builder.Services.AddServerSideBlazor();
 
-    builder.Services.AddDbContext<StoreDbContext>(opts => {
+    builder.Services.AddDbContext<StoreDbContext>(opts =>
+    {
         opts.UseSqlServer(
             builder.Configuration["ConnectionStrings:SportsStoreConnection"]);
     });
@@ -101,8 +102,17 @@ try
     app.MapBlazorHub();
     app.MapFallbackToPage("/admin/{*catchall}", "/Admin/Index");
 
-    // Seed data
-    SeedData.EnsurePopulated(app);
+    // Seed data com try-catch (mas mantendo a chamada original)
+    try
+    {
+        Log.Information("Executando SeedData...");
+        SeedData.EnsurePopulated(app);
+        Log.Information("SeedData concluído com sucesso");
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Erro no SeedData, mas continuando aplicação");
+    }
 
     Log.Information("SportsStore iniciado com sucesso");
     app.Run();

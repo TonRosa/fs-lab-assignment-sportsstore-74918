@@ -1,9 +1,5 @@
-﻿namespace SportsStore.Models
-
+﻿namespace SportsStore.Models;
+public interface IPaymentService
 {
-    public interface IPaymentService
-    {
-        Task<PaymentResult> ProcessPayment(PaymentRequest request);
-
-    }
+    Task<PaymentResult> ProcessPayment(PaymentRequest request);
 }

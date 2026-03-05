@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using SportsStore.Models;
 using Stripe;
-using Stripe.Checkout;
 
 namespace SportsStore.Services
 {
@@ -16,122 +15,107 @@ namespace SportsStore.Services
             _logger = logger;
             StripeConfiguration.ApiKey = _settings.SecretKey;
         }
+
         public async Task<PaymentResult> ProcessPayment(PaymentRequest request)
         {
             try
             {
-                _logger.LogInformation("Processing payment for order {OrderId}, amount {Amount}",
-                    request.OrderId, request.Amount);
+                _logger.LogInformation("Processando pagamento pedido {OrderId}", request.OrderId);
 
+                // PRIMEIRO: Criar um PaymentMethod a partir do token
+                var paymentMethodOptions = new PaymentMethodCreateOptions
+                {
+                    Type = "card",
+                    Card = new PaymentMethodCardOptions
+                    {
+                        Token = request.PaymentMethodId  // O token recebido do frontend
+                    }
+                };
+
+                var paymentMethodService = new PaymentMethodService();
+                var paymentMethod = await paymentMethodService.CreateAsync(paymentMethodOptions);
+
+                // SEGUNDO: Criar o PaymentIntent com o PaymentMethod
                 var options = new PaymentIntentCreateOptions
                 {
-                    Amount = (long)(request.Amount * 100), // Convert to cents
-                    Currency = request.Currency ?? "usd",
-                    PaymentMethodTypes = new List<string> { "card" },
-                    ReceiptEmail = request.CustomerEmail,
-                    Metadata = request.Metadata ?? new Dictionary<string, string>()
-                };
-
-                // Add order ID to metadata if not already present
-                if (!options.Metadata.ContainsKey("OrderId"))
-                {
-                    options.Metadata["OrderId"] = request.OrderId.ToString();
-                }
-
-                var service = new PaymentIntentService();
-                var intent = await service.CreateAsync(options);
-
-                _logger.LogInformation("Payment successful for order {OrderId}, Transaction: {TransactionId}",
-                    request.OrderId, intent.Id);
-
-                return new PaymentResult
-                {
-                    Success = true,
-                    TransactionId = intent.Id,
-                    ClientSecret = intent.ClientSecret,
-                    Status = PaymentStatus.Succeeded
-                };
-            }
-            catch (StripeException ex)
-            {
-                _logger.LogError(ex, "Stripe payment failed for order {OrderId}", request.OrderId);
-
-                return new PaymentResult
-                {
-                    Success = false,
-                    ErrorMessage = ex.Message,
-                    Status = PaymentStatus.Failed
-                };
-            }
-        }
-        // Method 1: Using Payment Intents (better for your custom checkout form)
-        public async Task<PaymentResult> CreatePaymentIntent(decimal amount, string orderId)
-        {
-            try
-            {
-                var options = new PaymentIntentCreateOptions
-                {
-                    Amount = (long)(amount * 100),
+                    Amount = (long)(request.Amount * 100),
                     Currency = "usd",
                     PaymentMethodTypes = new List<string> { "card" },
+                    PaymentMethod = paymentMethod.Id,  // Usar o ID do PaymentMethod, não o token
+                    Confirm = true,  // Confirmar automaticamente
                     Metadata = new Dictionary<string, string>
                     {
-                        ["OrderId"] = orderId
+                        ["OrderId"] = request.OrderId.ToString()
                     }
                 };
 
                 var service = new PaymentIntentService();
                 var intent = await service.CreateAsync(options);
 
-                return new PaymentResult
+                // Verificar resultado
+                if (intent.Status == "succeeded")
                 {
-                    Success = true,
-                    TransactionId = intent.Id,
-                    ClientSecret = intent.ClientSecret
-                };
+                    _logger.LogInformation("Pagamento aprovado! Transação: {TransactionId}", intent.Id);
+                    return new PaymentResult
+                    {
+                        Success = true,
+                        TransactionId = intent.Id,
+                        Status = PaymentStatus.Succeeded
+                    };
+                }
+                else if (intent.Status == "requires_action" || intent.Status == "requires_confirmation")
+                {
+                    // Pagamento precisa de autenticação 3D Secure
+                    _logger.LogInformation("Pagamento requer autenticação: {Status}", intent.Status);
+                    return new PaymentResult
+                    {
+                        Success = false,
+                        Status = PaymentStatus.Pending,
+                        ClientSecret = intent.ClientSecret,
+                        ErrorMessage = "Autenticação necessária"
+                    };
+                }
+                else
+                {
+                    _logger.LogWarning("Pagamento {Status} para pedido {OrderId}", intent.Status, request.OrderId);
+                    return new PaymentResult
+                    {
+                        Success = false,
+                        Status = PaymentStatus.Failed,
+                        ErrorMessage = $"Payment {intent.Status}"
+                    };
+                }
             }
             catch (StripeException ex)
             {
-                _logger.LogError(ex, "Stripe error");
-                return new PaymentResult { Success = false, ErrorMessage = ex.Message };
+                _logger.LogError(ex, "StripeException - Message: {Message}, Type: {Type}, Code: {Code}, StatusCode: {StatusCode}",
+                    ex.Message,
+                    ex.StripeError?.Type ?? "N/A",
+                    ex.StripeError?.Code ?? "N/A",
+                    ex.HttpStatusCode);
+
+                return new PaymentResult
+                {
+                    Success = false,
+                    Status = PaymentStatus.Failed,
+                    ErrorMessage = ex.Message
+                };
             }
         }
 
-        // Method 2: Using Checkout Sessions (simpler, Stripe hosts the payment page)
-        public string CreateCheckoutSession(Cart cart, string successUrl, string cancelUrl)
+        // Método auxiliar para mensagens amigáveis
+        private string GetUserFriendlyMessage(StripeException ex)
         {
-            var lineItems = cart.Lines.Select(line => new SessionLineItemOptions
+            return ex.StripeError?.Code switch
             {
-                PriceData = new SessionLineItemPriceDataOptions
-                {
-                    Currency = "usd",
-                    ProductData = new SessionLineItemPriceDataProductDataOptions
-                    {
-                        Name = line.Product.Name,
-                        Description = line.Product.Description
-                    },
-                    UnitAmount = (long)(line.Product.Price * 100)
-                },
-                Quantity = line.Quantity
-            }).ToList();
-
-            var options = new SessionCreateOptions
-            {
-                PaymentMethodTypes = new List<string> { "card" },
-                LineItems = lineItems,
-                Mode = "payment",
-                SuccessUrl = successUrl,
-                CancelUrl = cancelUrl,
-                Metadata = new Dictionary<string, string>
-                {
-                    ["OrderId"] = Guid.NewGuid().ToString() // You'd use your actual order ID
-                }
+                "card_declined" => "Cartão recusado",
+                "incorrect_cvc" => "CVC incorreto",
+                "expired_card" => "Cartão expirado",
+                "processing_error" => "Erro no processamento",
+                "insufficient_funds" => "Fundos insuficientes",
+                "authentication_required" => "Autenticação necessária",
+                _ => "Erro no pagamento: " + ex.Message
             };
-
-            var service = new SessionService();
-            var session = service.Create(options);
-
-            return session.Id;
         }
     }
-}
+    }

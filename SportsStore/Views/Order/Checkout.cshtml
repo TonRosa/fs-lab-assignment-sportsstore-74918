@@ -1,4 +1,4 @@
-﻿@model Order
+﻿@* @model Order
 
 <h2>Check out now</h2>
 <p>Please enter your details, and we'll ship your goods right away!</p>
@@ -59,16 +59,168 @@
         var card = elements.create('card');
         card.mount('#card-element');
 
-        document.getElementById('payment-form').addEventListener('submit', async (e) => {
+        var form = document.getElementById('payment-form');
+        form.addEventListener('submit', async function(e) {
             e.preventDefault();
+
             const { token, error } = await stripe.createToken(card);
+
             if (error) {
                 alert(error.message);
             } else {
                 document.getElementById('stripeToken').value = token.id;
-                e.target.submit();
+                form.submit();
             }
         });
     </script>
-}
+} *@
+
+
+
+@model Order
+
+<h2>Checkout</h2>
+
+<div asp-validation-summary="All" class="text-danger"></div>
+
+<form asp-action="Checkout" method="post" id="payment-form">
+    <h3>Shipping Information</h3>
+
+    <div class="form-group mb-3">
+        <label>Name:</label>
+        <input asp-for="Name" class="form-control" required />
+    </div>
+
+    <div class="form-group mb-3">
+        <label>Address Line 1:</label>
+        <input asp-for="Line1" class="form-control" required />
+    </div>
+
+    <div class="form-group mb-3">
+        <label>Address Line 2:</label>
+        <input asp-for="Line2" class="form-control" />
+    </div>
+
+    <div class="form-group mb-3">
+        <label>Address Line 3:</label>
+        <input asp-for="Line3" class="form-control" />
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label>City:</label>
+            <input asp-for="City" class="form-control" required />
+        </div>
+        <div class="col-md-4 mb-3">
+            <label>State:</label>
+            <input asp-for="State" class="form-control" required />
+        </div>
+        <div class="col-md-4 mb-3">
+            <label>Zip:</label>
+            <input asp-for="Zip" class="form-control" />
+        </div>
+    </div>
+
+    <div class="form-group mb-3">
+        <label>Country:</label>
+        <input asp-for="Country" class="form-control" required />
+    </div>
+
+    <h3>Payment Information</h3>
+
+    <!-- DIV ONDE O CARTÃO VAI APARECER -->
+    <div class="form-group mb-3">
+        <label>Credit Card</label>
+        <div id="card-element" style="border: 1px solid #ccc; padding: 12px; border-radius: 4px; background: white;">
+            <!-- Stripe vai colocar o cartão aqui -->
+        </div>
+        <div id="card-errors" class="text-danger mt-2"></div>
+    </div>
+
+    <!-- Campo escondido para o token -->
+    <input type="hidden" name="stripeToken" id="stripeToken" />
+
+    <div class="form-check mb-3">
+        <input asp-for="GiftWrap" class="form-check-input" />
+        <label class="form-check-label">Gift wrap these items</label>
+    </div>
+
+    <div class="text-center">
+        <button type="submit" class="btn btn-success btn-lg" id="submit-button">
+            Pay Now
+        </button>
+        <a asp-action="Index" asp-controller="Home" class="btn btn-secondary btn-lg">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        // Aguardar o DOM carregar
+        document.addEventListener('DOMContentLoaded', function() {
+
+            // Stripe publishable key
+            var stripe = Stripe('@ViewBag.PublishableKey');
+            var elements = stripe.elements();
+
+            // Criar elemento do cartão
+            var card = elements.create('card', {
+                style: {
+                    base: {
+                        fontSize: '16px',
+                        color: '#32325d',
+                    }
+                }
+            });
+
+            // Montar o cartão no div
+            card.mount('#card-element');
+
+            // Mostrar erros
+            card.addEventListener('change', function(event) {
+                var displayError = document.getElementById('card-errors');
+                if (event.error) {
+                    displayError.textContent = event.error.message;
+                } else {
+                    displayError.textContent = '';
+                }
+            });
+
+            // Enviar formulário
+            var form = document.getElementById('payment-form');
+            var submitButton = document.getElementById('submit-button');
+
+            form.addEventListener('submit', async function(event) {
+                event.preventDefault();
+
+                // Desabilitar botão
+                submitButton.disabled = true;
+                submitButton.textContent = 'Processing...';
+
+                try {
+                    // Criar token
+                    const { token, error } = await stripe.createToken(card);
+
+                    if (error) {
+                        // Mostrar erro
+                        document.getElementById('card-errors').textContent = error.message;
+
+                        // Reabilitar botão
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Pay Now';
+                    } else {
+                        // Colocar token no campo hidden
+                        document.getElementById('stripeToken').value = token.id;
+
+                        // Enviar formulário
+                        form.submit();
+                    }
+                } catch (err) {
+                    console.error(err);
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Pay Now';
+                }
+            });
+        });
+    </script>
 }

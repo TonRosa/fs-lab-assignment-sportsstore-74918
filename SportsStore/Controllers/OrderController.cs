@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using SportsStore.Models;
+using Stripe;
 
 namespace SportsStore.Controllers
 {
@@ -42,20 +44,44 @@ namespace SportsStore.Controllers
         private readonly Cart _cart;
         private readonly IPaymentService _paymentService;
         private readonly ILogger<OrderController> _logger;
+        private readonly StripeSettings _stripeSettings;
 
         public OrderController(
             IOrderRepository repoService,
             Cart cartService,
             IPaymentService paymentService,
+             IOptions<StripeSettings> stripeSettings,
             ILogger<OrderController> logger)
         {
             _repository = repoService;
             _cart = cartService;
             _paymentService = paymentService;
+            _stripeSettings = stripeSettings.Value;
             _logger = logger;
         }
 
-        public ViewResult Checkout() => View(new Order());
+
+        public ViewResult Checkout()
+        {
+            // Verificação de segurança
+            if (_stripeSettings == null)
+            {
+                _logger.LogError("StripeSettings não foi configurado!");
+                ViewBag.PublishableKey = "pk_test_missing"; // Valor temporário
+            }
+            else if (string.IsNullOrEmpty(_stripeSettings.PublishableKey))
+            {
+                _logger.LogError("PublishableKey está vazia!");
+                ViewBag.PublishableKey = "pk_test_missing";
+            }
+            else
+            {
+                ViewBag.PublishableKey = _stripeSettings.PublishableKey;
+                _logger.LogInformation("Chave publicável configurada");
+            }
+
+            return View(new Order());
+        }
 
         [HttpPost]
         public async Task<IActionResult> Checkout(Order order, string stripeToken)
@@ -109,14 +135,21 @@ namespace SportsStore.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error processing order");
+                    // Log detalhado do erro
+                    _logger.LogError(ex, "Erro detalhado: {Message}, StackTrace: {StackTrace}",
+                        ex.Message, ex.StackTrace);
+
+                    // Se for StripeException, tem mais detalhes
+                    if (ex is StripeException stripeEx)
+                    {
+                        _logger.LogError("Stripe Error: {StripeError}", stripeEx.StripeError?.Message);
+                    }
+
                     ModelState.AddModelError("", "An error occurred while processing your order.");
                     return View(order);
                 }
             }
-
             return View(order);
         }
-      
     }
 }
