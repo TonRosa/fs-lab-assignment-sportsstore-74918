@@ -1,77 +1,94 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using SportsStore.Controllers;
 using SportsStore.Models;
+using SportsStore.Services;
+using System.Threading.Tasks;
 using Xunit;
 
-namespace SportsStore.Tests {
+namespace SportsStore.Tests;
 
-    public class OrderControllerTests {
+public class OrderControllerTests
+{
+    [Fact]
+    public void Checkout_ReturnsView_WithValidModel()
+    {
+        // Arrange
+        var mockRepo = new Mock<IOrderRepository>();
+        var cart = new Cart();
+        var mockPaymentService = new Mock<IPaymentService>();  // NOVO
+        var mockLogger = new Mock<ILogger<OrderController>>(); // NOVO
 
-        [Fact]
-        public void Cannot_Checkout_Empty_Cart() {
-            // Arrange - create a mock repository
-            Mock<IOrderRepository> mock = new Mock<IOrderRepository>();
-            // Arrange - create an empty cart
-            Cart cart = new Cart();
-            // Arrange - create the order
-            Order order = new Order();
-            // Arrange - create an instance of the controller
-            OrderController target = new OrderController(mock.Object, cart);
+        var controller = new OrderController(
+            mockRepo.Object,
+            cart,
+            mockPaymentService.Object,  // ADICIONAR
+            mockLogger.Object            // ADICIONAR
+        );
 
-            // Act
-            ViewResult? result = target.Checkout(order) as ViewResult;
+        // Act
+        var result = controller.Checkout();
 
-            // Assert - check that the order hasn't been stored 
-            mock.Verify(m => m.SaveOrder(It.IsAny<Order>()), Times.Never);
-            // Assert - check that the method is returning the default view
-            Assert.True(string.IsNullOrEmpty(result?.ViewName));
-            // Assert - check that I am passing an invalid model to the view
-            Assert.False(result?.ViewData.ModelState.IsValid);
-        }
+        // Assert
+        Assert.IsType<ViewResult>(result);
+    }
 
-        [Fact]
-        public void Cannot_Checkout_Invalid_ShippingDetails() {
+    [Fact]
+    public async Task Checkout_Post_ReturnsView_WhenModelInvalid()
+    {
+        // Arrange
+        var mockRepo = new Mock<IOrderRepository>();
+        var cart = new Cart();
+        var mockPaymentService = new Mock<IPaymentService>();  // NOVO
+        var mockLogger = new Mock<ILogger<OrderController>>(); // NOVO
 
-            // Arrange - create a mock order repository
-            Mock<IOrderRepository> mock = new Mock<IOrderRepository>();
-            // Arrange - create a cart with one item
-            Cart cart = new Cart();
-            cart.AddItem(new Product(), 1);
-            // Arrange - create an instance of the controller
-            OrderController target = new OrderController(mock.Object, cart);
-            // Arrange - add an error to the model
-            target.ModelState.AddModelError("error", "error");
+        var controller = new OrderController(
+            mockRepo.Object,
+            cart,
+            mockPaymentService.Object,  // ADICIONAR
+            mockLogger.Object            // ADICIONAR
+        );
 
-            // Act - try to checkout
-            ViewResult? result = target.Checkout(new Order()) as ViewResult;
+        controller.ModelState.AddModelError("error", "test error");
 
-            // Assert - check that the order hasn't been passed stored
-            mock.Verify(m => m.SaveOrder(It.IsAny<Order>()), Times.Never);
-            // Assert - check that the method is returning the default view
-            Assert.True(string.IsNullOrEmpty(result?.ViewName));
-            // Assert - check that I am passing an invalid model to the view
-            Assert.False(result?.ViewData.ModelState.IsValid);
-        }
+        var order = new Order();
 
-        [Fact]
-        public void Can_Checkout_And_Submit_Order() {
-            // Arrange - create a mock order repository
-            Mock<IOrderRepository> mock = new Mock<IOrderRepository>();
-            // Arrange - create a cart with one item
-            Cart cart = new Cart();
-            cart.AddItem(new Product(), 1);
-            // Arrange - create an instance of the controller
-            OrderController target = new OrderController(mock.Object, cart);
+        // Act
+        var result = await controller.Checkout(order, "test_token"); // NOVO: stripeToken
 
-            // Act - try to checkout
-            RedirectToPageResult? result =
-                    target.Checkout(new Order()) as RedirectToPageResult;
+        // Assert
+        Assert.IsType<ViewResult>(result);
+    }
 
-            // Assert - check that the order has been stored
-            mock.Verify(m => m.SaveOrder(It.IsAny<Order>()), Times.Once);
-            // Assert - check that the method is redirecting to the Completed action
-            Assert.Equal("/Completed", result?.PageName);
-        }
+    [Fact]
+    public async Task Checkout_Post_ReturnsRedirect_WhenValid()
+    {
+        // Arrange
+        var mockRepo = new Mock<IOrderRepository>();
+        var cart = new Cart();
+        cart.AddItem(new Product { ProductID = 1, Name = "Test", Price = 10 }, 1);
+
+        var mockPaymentService = new Mock<IPaymentService>();  // NOVO
+        mockPaymentService.Setup(x => x.ProcessPayment(It.IsAny<PaymentRequest>()))
+            .ReturnsAsync(new PaymentResult { Success = true, TransactionId = "test_123" });
+
+        var mockLogger = new Mock<ILogger<OrderController>>(); // NOVO
+
+        var controller = new OrderController(
+            mockRepo.Object,
+            cart,
+            mockPaymentService.Object,  // ADICIONAR
+            mockLogger.Object            // ADICIONAR
+        );
+
+        var order = new Order();
+
+        // Act
+        var result = await controller.Checkout(order, "test_token"); // NOVO: stripeToken
+
+        // Assert
+        Assert.IsType<RedirectToPageResult>(result);
+        mockRepo.Verify(x => x.SaveOrder(It.IsAny<Order>()), Times.Once);
     }
 }

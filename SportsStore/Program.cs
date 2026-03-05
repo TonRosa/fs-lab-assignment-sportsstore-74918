@@ -1,49 +1,117 @@
 using Microsoft.EntityFrameworkCore;
 using SportsStore.Models;
+using SportsStore.Services;
+using Stripe;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// Serilog configuration - mantida igual
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
 
-builder.Services.AddControllersWithViews();
+    // Reduce ASP.NET noise
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("System", Serilog.Events.LogEventLevel.Warning)
 
-builder.Services.AddDbContext<StoreDbContext>(opts => {
-    opts.UseSqlServer(
-        builder.Configuration["ConnectionStrings:SportsStoreConnection"]);
-});
+    // Structured context enrichment
+    .Enrich.FromLogContext()
+    //.Enrich.WithMachineName()
+    //.Enrich.WithThreadId()
 
-builder.Services.AddScoped<IStoreRepository, EFStoreRepository>();
-builder.Services.AddScoped<IOrderRepository, EFOrderRepository>();
+    // Console logging (minimal)
+    .WriteTo.Console(
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Warning)
 
-builder.Services.AddRazorPages();
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession();
-builder.Services.AddScoped<Cart>(sp => SessionCart.GetCart(sp));
-builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-builder.Services.AddServerSideBlazor();
+    // File logging (full detail)
+    .WriteTo.File(
+        "logs/sportsstore.txt",
+        rollingInterval: RollingInterval.Day,
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Debug)
 
-var app = builder.Build();
+    // Seq centralized logging
+    .WriteTo.Seq(
+        "http://localhost:5341",
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information)
 
-app.UseStaticFiles();
-app.UseSession();
+    .CreateLogger();
 
-app.MapControllerRoute("catpage",
-    "{category}/Page{productPage:int}",
-    new { Controller = "Home", action = "Index" });
+try
+{
+    Log.Information("Iniciando SportsStore");
 
-app.MapControllerRoute("page", "Page{productPage:int}",
-    new { Controller = "Home", action = "Index", productPage = 1 });
+    var builder = WebApplication.CreateBuilder(args);
 
-app.MapControllerRoute("category", "{category}",
-    new { Controller = "Home", action = "Index", productPage = 1 });
+    // Add Serilog ao builder (DEVE vir antes de outros serviços)
+    builder.Host.UseSerilog();
 
-app.MapControllerRoute("pagination",
-    "Products/Page{productPage}",
-    new { Controller = "Home", action = "Index", productPage = 1 });
+    // Stripe configuration - com segurança
+    var stripeSecretKey = builder.Configuration["Stripe:SecretKey"];
+    if (!string.IsNullOrEmpty(stripeSecretKey))
+    {
+        StripeConfiguration.ApiKey = stripeSecretKey;
+        Log.Information("Stripe configurado com sucesso");
+    }
+    else
+    {
+        Log.Warning("Chave secreta do Stripe não encontrada");
+    }
 
-app.MapDefaultControllerRoute();
-app.MapRazorPages();
-app.MapBlazorHub();
-app.MapFallbackToPage("/admin/{*catchall}", "/Admin/Index");
+    // Registrar serviços
+    builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+    builder.Services.AddScoped<IPaymentService, StripePaymentService>();
 
-SeedData.EnsurePopulated(app);
+    builder.Services.AddControllersWithViews();
+    builder.Services.AddRazorPages();
+    builder.Services.AddServerSideBlazor();
 
-app.Run();
+    builder.Services.AddDbContext<StoreDbContext>(opts => {
+        opts.UseSqlServer(
+            builder.Configuration["ConnectionStrings:SportsStoreConnection"]);
+    });
+
+    builder.Services.AddScoped<IStoreRepository, EFStoreRepository>();
+    builder.Services.AddScoped<IOrderRepository, EFOrderRepository>();
+
+    builder.Services.AddDistributedMemoryCache();
+    builder.Services.AddSession();
+    builder.Services.AddScoped<Cart>(sp => SessionCart.GetCart(sp));
+    builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+    var app = builder.Build();
+
+    app.UseStaticFiles();
+    app.UseSession();
+
+    // Rotas
+    app.MapControllerRoute("catpage",
+        "{category}/Page{productPage:int}",
+        new { Controller = "Home", action = "Index" });
+
+    app.MapControllerRoute("page", "Page{productPage:int}",
+        new { Controller = "Home", action = "Index", productPage = 1 });
+
+    app.MapControllerRoute("category", "{category}",
+        new { Controller = "Home", action = "Index", productPage = 1 });
+
+    app.MapControllerRoute("pagination",
+        "Products/Page{productPage}",
+        new { Controller = "Home", action = "Index", productPage = 1 });
+
+    app.MapDefaultControllerRoute();
+    app.MapRazorPages();
+    app.MapBlazorHub();
+    app.MapFallbackToPage("/admin/{*catchall}", "/Admin/Index");
+
+    // Seed data
+    SeedData.EnsurePopulated(app);
+
+    Log.Information("SportsStore iniciado com sucesso");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Falha ao iniciar SportsStore");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

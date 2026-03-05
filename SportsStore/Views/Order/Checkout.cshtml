@@ -32,6 +32,15 @@
     <div class="form-group">
         <label>Country:</label><input asp-for="Country" class="form-control" />
     </div>
+    <h3>Payment Information</h3>
+    <div class="form-group">
+        <label for="card-element">Credit or debit card</label>
+        <div id="card-element" class="form-control" style="padding: 10px;"></div>
+        <div id="card-errors" class="text-danger" role="alert"></div>
+    </div>
+
+    <!-- Hidden field for Stripe token -->
+    <input type="hidden" name="stripeToken" id="stripeToken" />
     <h3>Options</h3>
     <div class="checkbox">
         <label>
@@ -42,3 +51,24 @@
         <input class="btn btn-primary" type="submit" value="Complete Order" />
     </div>
 </form>
+@section Scripts {
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        var stripe = Stripe('@ViewBag.PublishableKey');
+        var elements = stripe.elements();
+        var card = elements.create('card');
+        card.mount('#card-element');
+
+        document.getElementById('payment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const { token, error } = await stripe.createToken(card);
+            if (error) {
+                alert(error.message);
+            } else {
+                document.getElementById('stripeToken').value = token.id;
+                e.target.submit();
+            }
+        });
+    </script>
+}
+}
