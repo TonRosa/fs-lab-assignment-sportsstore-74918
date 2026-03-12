@@ -20,17 +20,17 @@ jobs:
         dotnet-version: '9.0.x'
     
     - name: Restore dependencies
-      run: dotnet restore SportsStore.sln
+      run: dotnet restore SportsSln.sln  # ← CORRIGIDO
     
     - name: Build
-      run: dotnet build SportsStore.sln --configuration Release --no-restore
+      run: dotnet build SportsSln.sln --configuration Release --no-restore  # ← CORRIGIDO
     
     - name: Test
-      run: dotnet test SportsStore.sln --configuration Release --no-build --verbosity normal --logger "trx"
+      run: dotnet test SportsSln.sln --configuration Release --no-build --verbosity normal  # ← CORRIGIDO
     
-    - name: Upload test results
+    - name: Upload test results (if tests fail)
       uses: actions/upload-artifact@v4
-      if: always()
+      if: failure()
       with:
         name: test-results
         path: '**/*.trx'
