@@ -48,4 +48,4 @@ jobs:
           ./TestResults/*.trx
         check_name: Test Results
         comment_mode: always
-        fail_on: test_failures
+        fail_on: errors
