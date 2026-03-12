@@ -21,13 +21,13 @@ jobs:
         dotnet-version: '9.0.x'
     
     - name: Restore dependencies
-      run: dotnet restore SportsSln.sln  # ← CORRIGIDO
+      run: dotnet restore SportsSln.sln  
     
     - name: Build
-      run: dotnet build SportsSln.sln --configuration Release --no-restore  # ← CORRIGIDO
+      run: dotnet build SportsSln.sln --configuration Release --no-restore  
     
     - name: Test
-      run: dotnet test SportsSln.sln --configuration Release --no-build --verbosity normal  # ← CORRIGIDO
+      run: dotnet test SportsSln.sln --configuration Release --no-build --verbosity normal  
     
     - name: Upload test results (if tests fail)
       uses: actions/upload-artifact@v4
