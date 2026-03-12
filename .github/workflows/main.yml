@@ -2,6 +2,7 @@ name: CI Pipeline
 
 on:
   workflow_dispatch:
+
   push:
     branches: [ main ]
   pull_request:
@@ -20,26 +21,17 @@ jobs:
         dotnet-version: '9.0.x'
     
     - name: Restore dependencies
-      run: dotnet restore SportsSln.sln 
+      run: dotnet restore SportsSln.sln  # ← CORRIGIDO
     
     - name: Build
-      run: dotnet build SportsSln.sln --configuration Release --no-restore 
+      run: dotnet build SportsSln.sln --configuration Release --no-restore  # ← CORRIGIDO
     
     - name: Test
-      run: dotnet test SportsSln.sln --configuration Release --no-build --verbosity normal --logger "trx" --results-directory ./TestResults
+      run: dotnet test SportsSln.sln --configuration Release --no-build --verbosity normal  # ← CORRIGIDO
     
-    - name: Upload test results to GitHub
+    - name: Upload test results (if tests fail)
       uses: actions/upload-artifact@v4
-      if: always() 
+      if: failure()
       with:
         name: test-results
-        path: ./TestResults
-    
-    - name: Publish test results (opcional - para ver no GitHub)
-      uses: dorny/test-reporter@v1
-      if: success() || failure()
-      with:
-        name: Test Results
-        path: ./TestResults/*.trx
-        reporter: dotnet-trx
-        fail-on-error: false
+        path: '**/*.trx'
