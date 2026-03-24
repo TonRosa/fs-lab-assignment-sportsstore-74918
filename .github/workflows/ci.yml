@@ -3,9 +3,9 @@ name: CI Pipeline
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 permissions:
   checks: write
@@ -15,37 +15,43 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
-    
-    - name: Restore dependencies
-      run: dotnet restore SportsSln.sln
-    
-    - name: Build
-      run: dotnet build SportsSln.sln --configuration Release --no-restore
-    
-    - name: Test
-      run: dotnet test SportsSln.sln --configuration Release --no-build --verbosity normal --logger "trx" --results-directory ./TestResults
-    
-    - name: Upload test results as artifacts
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results
-        path: ./TestResults
-    
-    - name: Publish test results to GitHub
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      if: always()
-      with:
-        files: |
-          ./TestResults/*.trx
-        check_name: Test Results
-        comment_mode: always
-        fail_on: errors
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore SportsSln.sln
+
+      - name: Build
+        run: dotnet build SportsSln.sln --configuration Release --no-restore
+
+      - name: Test with coverage
+        run: |
+          dotnet test SportsSln.sln \
+            --configuration Release \
+            --no-build \
+            --verbosity normal \
+            --logger "trx" \
+            --results-directory ./TestResults \
+            --collect:"XPlat Code Coverage"
+
+      - name: Upload test results as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./TestResults
+
+      - name: Publish test results to GitHub
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: ./TestResults/*.trx
+          check_name: Test Results
+          comment_mode: always
+          fail_on: errors
