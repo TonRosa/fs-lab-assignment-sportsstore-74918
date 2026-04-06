@@ -1,21 +1,20 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Shared.Contracts.Events;
-using Shared.Contracts.DTOs;
 using Serilog;
 
-namespace Inventory.Service;
+namespace Shipping.Service;
 
-public class InventoryWorker : BackgroundService
+public class ShippingWorker : BackgroundService
 {
     private readonly IConfiguration _configuration;
-    private readonly string _serviceName = "Inventory.Service";
+    private readonly string _serviceName = "Shipping.Service";
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public InventoryWorker(IConfiguration configuration)
+    public ShippingWorker(IConfiguration configuration)
     {
         _configuration = configuration;
     }
@@ -30,15 +29,15 @@ public class InventoryWorker : BackgroundService
 
         // Declare queues
         await _channel.QueueDeclareAsync(
-            queue: "order.submitted",
+            queue: "payment.approved",
             durable: true, exclusive: false, autoDelete: false);
 
         await _channel.QueueDeclareAsync(
-            queue: "inventory.confirmed",
+            queue: "shipping.created",
             durable: true, exclusive: false, autoDelete: false);
 
         await _channel.QueueDeclareAsync(
-            queue: "inventory.failed",
+            queue: "shipping.failed",
             durable: true, exclusive: false, autoDelete: false);
 
         await _channel.BasicQosAsync(0, 1, false);
@@ -50,92 +49,97 @@ public class InventoryWorker : BackgroundService
             var json = Encoding.UTF8.GetString(body);
 
             Log.Information(
-                "[{Service}] Received message on order.submitted",
+                "[{Service}] Received message on payment.approved",
                 _serviceName);
 
             try
             {
-                var order = JsonSerializer.Deserialize<OrderSubmitted>(json);
-                if (order == null) return;
+                var message = JsonSerializer.Deserialize<PaymentApproved>(json);
+                if (message == null) return;
 
-                await ProcessInventoryAsync(order);
+                await ProcessShippingAsync(message);
                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
             }
             catch (Exception ex)
             {
                 Log.Error(ex,
-                    "[{Service}] Error processing message",
+                    "[{Service}] Error processing shipping",
                     _serviceName);
                 await _channel.BasicNackAsync(ea.DeliveryTag, false, false);
             }
         };
 
         await _channel.BasicConsumeAsync(
-            queue: "order.submitted",
+            queue: "payment.approved",
             autoAck: false,
             consumer: consumer);
 
         Log.Information(
-            "[{Service}] Listening on order.submitted queue",
+            "[{Service}] Listening on payment.approved queue",
             _serviceName);
 
-        // Keep running until stopped
         while (!stoppingToken.IsCancellationRequested)
         {
             await Task.Delay(1000, stoppingToken);
         }
     }
 
-    private async Task ProcessInventoryAsync(OrderSubmitted order)
+    private async Task ProcessShippingAsync(PaymentApproved message)
     {
         Log.Information(
-            "[{Service}] Checking inventory for Order {OrderId} " +
-            "with {ItemCount} items",
-            _serviceName, order.OrderId, order.Items.Count);
+            "[{Service}] Creating shipment for Order {OrderId}",
+            _serviceName, message.OrderId);
 
-        // Simulate inventory check
-        // In a real system, this would query a database
-        var allInStock = SimulateStockCheck(order.Items);
+        await Task.Delay(600); // simulate processing time
 
-        await Task.Delay(500); // simulate processing time
+        var success = SimulateShipping();
 
-        if (allInStock)
+        if (success)
         {
-            var confirmed = new InventoryConfirmed
+            var trackingNumber = GenerateTrackingNumber();
+
+            var created = new ShippingCreated
             {
-                OrderId = order.OrderId,
-                CorrelationId = order.CorrelationId,
-                ConfirmedAt = DateTime.UtcNow
+                OrderId = message.OrderId,
+                CorrelationId = message.CorrelationId,
+                TrackingNumber = trackingNumber,
+                EstimatedDispatch = DateTime.UtcNow.AddDays(2)
             };
 
-            await PublishAsync(confirmed, "inventory.confirmed");
+            await PublishAsync(created, "shipping.created");
 
             Log.Information(
-                "[{Service}] Inventory CONFIRMED for Order {OrderId}",
-                _serviceName, order.OrderId);
+                "[{Service}] Shipment CREATED for Order {OrderId}, " +
+                "Tracking {TrackingNumber}",
+                _serviceName, message.OrderId, trackingNumber);
         }
         else
         {
-            var failed = new InventoryFailed
+            var failed = new ShippingFailed
             {
-                OrderId = order.OrderId,
-                CorrelationId = order.CorrelationId,
-                Reason = "One or more items are out of stock"
+                OrderId = message.OrderId,
+                CorrelationId = message.CorrelationId,
+                Reason = "No courier available for this address"
             };
 
-            await PublishAsync(failed, "inventory.failed");
+            await PublishAsync(failed, "shipping.failed");
 
             Log.Warning(
-                "[{Service}] Inventory FAILED for Order {OrderId}",
-                _serviceName, order.OrderId);
+                "[{Service}] Shipment FAILED for Order {OrderId}",
+                _serviceName, message.OrderId);
         }
     }
 
-    private bool SimulateStockCheck(List<OrderItemDto> items)
+    private bool SimulateShipping()
     {
-        // Simulate: 90% of orders pass inventory check
+        // 95% success rate
         var random = new Random();
-        return random.NextDouble() > 0.1;
+        return random.NextDouble() > 0.05;
+    }
+
+    private string GenerateTrackingNumber()
+    {
+        return $"SHIP-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
     }
 
     private async Task PublishAsync<T>(T message, string queueName)

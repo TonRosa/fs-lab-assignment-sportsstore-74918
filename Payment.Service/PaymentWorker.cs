@@ -1,21 +1,20 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Shared.Contracts.Events;
-using Shared.Contracts.DTOs;
 using Serilog;
 
-namespace Inventory.Service;
+namespace Payment.Service;
 
-public class InventoryWorker : BackgroundService
+public class PaymentWorker : BackgroundService
 {
     private readonly IConfiguration _configuration;
-    private readonly string _serviceName = "Inventory.Service";
+    private readonly string _serviceName = "Payment.Service";
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public InventoryWorker(IConfiguration configuration)
+    public PaymentWorker(IConfiguration configuration)
     {
         _configuration = configuration;
     }
@@ -28,17 +27,17 @@ public class InventoryWorker : BackgroundService
 
         if (_channel == null) return;
 
-        // Declare queues
-        await _channel.QueueDeclareAsync(
-            queue: "order.submitted",
-            durable: true, exclusive: false, autoDelete: false);
-
+        // Declare all queues
         await _channel.QueueDeclareAsync(
             queue: "inventory.confirmed",
             durable: true, exclusive: false, autoDelete: false);
 
         await _channel.QueueDeclareAsync(
-            queue: "inventory.failed",
+            queue: "payment.approved",
+            durable: true, exclusive: false, autoDelete: false);
+
+        await _channel.QueueDeclareAsync(
+            queue: "payment.rejected",
             durable: true, exclusive: false, autoDelete: false);
 
         await _channel.BasicQosAsync(0, 1, false);
@@ -50,92 +49,90 @@ public class InventoryWorker : BackgroundService
             var json = Encoding.UTF8.GetString(body);
 
             Log.Information(
-                "[{Service}] Received message on order.submitted",
+                "[{Service}] Received message on inventory.confirmed",
                 _serviceName);
 
             try
             {
-                var order = JsonSerializer.Deserialize<OrderSubmitted>(json);
-                if (order == null) return;
+                var message = JsonSerializer.Deserialize<InventoryConfirmed>(json);
+                if (message == null) return;
 
-                await ProcessInventoryAsync(order);
+                await ProcessPaymentAsync(message);
                 await _channel.BasicAckAsync(ea.DeliveryTag, false);
             }
             catch (Exception ex)
             {
                 Log.Error(ex,
-                    "[{Service}] Error processing message",
+                    "[{Service}] Error processing payment",
                     _serviceName);
                 await _channel.BasicNackAsync(ea.DeliveryTag, false, false);
             }
         };
 
         await _channel.BasicConsumeAsync(
-            queue: "order.submitted",
+            queue: "inventory.confirmed",
             autoAck: false,
             consumer: consumer);
 
         Log.Information(
-            "[{Service}] Listening on order.submitted queue",
+            "[{Service}] Listening on inventory.confirmed queue",
             _serviceName);
 
-        // Keep running until stopped
         while (!stoppingToken.IsCancellationRequested)
         {
             await Task.Delay(1000, stoppingToken);
         }
     }
 
-    private async Task ProcessInventoryAsync(OrderSubmitted order)
+    private async Task ProcessPaymentAsync(InventoryConfirmed message)
     {
         Log.Information(
-            "[{Service}] Checking inventory for Order {OrderId} " +
-            "with {ItemCount} items",
-            _serviceName, order.OrderId, order.Items.Count);
+            "[{Service}] Processing payment for Order {OrderId}",
+            _serviceName, message.OrderId);
 
-        // Simulate inventory check
-        // In a real system, this would query a database
-        var allInStock = SimulateStockCheck(order.Items);
+        await Task.Delay(800); // simulate processing time
 
-        await Task.Delay(500); // simulate processing time
+        var isApproved = SimulatePayment();
 
-        if (allInStock)
+        if (isApproved)
         {
-            var confirmed = new InventoryConfirmed
+            var approved = new PaymentApproved
             {
-                OrderId = order.OrderId,
-                CorrelationId = order.CorrelationId,
-                ConfirmedAt = DateTime.UtcNow
+                OrderId = message.OrderId,
+                CorrelationId = message.CorrelationId,
+                TransactionId = $"TXN-{Guid.NewGuid().ToString()[..8].ToUpper()}",
+                ApprovedAt = DateTime.UtcNow
             };
 
-            await PublishAsync(confirmed, "inventory.confirmed");
+            await PublishAsync(approved, "payment.approved");
 
             Log.Information(
-                "[{Service}] Inventory CONFIRMED for Order {OrderId}",
-                _serviceName, order.OrderId);
+                "[{Service}] Payment APPROVED for Order {OrderId}, " +
+                "Transaction {TransactionId}",
+                _serviceName, message.OrderId, approved.TransactionId);
         }
         else
         {
-            var failed = new InventoryFailed
+            var rejected = new PaymentRejected
             {
-                OrderId = order.OrderId,
-                CorrelationId = order.CorrelationId,
-                Reason = "One or more items are out of stock"
+                OrderId = message.OrderId,
+                CorrelationId = message.CorrelationId,
+                Reason = "Payment declined by bank"
             };
 
-            await PublishAsync(failed, "inventory.failed");
+            await PublishAsync(rejected, "payment.rejected");
 
             Log.Warning(
-                "[{Service}] Inventory FAILED for Order {OrderId}",
-                _serviceName, order.OrderId);
+                "[{Service}] Payment REJECTED for Order {OrderId}",
+                _serviceName, message.OrderId);
         }
     }
 
-    private bool SimulateStockCheck(List<OrderItemDto> items)
+    private bool SimulatePayment()
     {
-        // Simulate: 90% of orders pass inventory check
+        // 85% approval rate
         var random = new Random();
-        return random.NextDouble() > 0.1;
+        return random.NextDouble() > 0.15;
     }
 
     private async Task PublishAsync<T>(T message, string queueName)
