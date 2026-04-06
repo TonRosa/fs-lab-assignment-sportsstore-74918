@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_Sports
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: Sport
+      RABBITMQ_DEFAULT_PASS: 123
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orderapi:
+    build:
+      context: .
+      dockerfile: OrderManagement.API/Dockerfile
+    container_name: orderapi
+    ports:
+      - "5292:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=Sport
+      - RabbitMQ__Password=123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  inventory:
+    build:
+      context: .
+      dockerfile: Inventory.Service/Dockerfile
+    container_name: inventory
+    environment:
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=Sport
+      - RabbitMQ__Password=123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  payment:
+    build:
+      context: .
+      dockerfile: Payment.Service/Dockerfile
+    container_name: payment
+    environment:
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=Sport
+      - RabbitMQ__Password=123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  shipping:
+    build:
+      context: .
+      dockerfile: Shipping.Service/Dockerfile
+    container_name: shipping
+    environment:
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=Sport
+      - RabbitMQ__Password=123
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

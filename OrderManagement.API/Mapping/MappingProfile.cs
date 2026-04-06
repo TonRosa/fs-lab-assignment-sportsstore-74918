@@ -23,5 +23,11 @@ public class MappingProfile : Profile
         CreateMap<PaymentRecord, PaymentRecordDto>();
         CreateMap<ShipmentRecord, ShipmentRecordDto>();
         CreateMap<InventoryRecord, InventoryRecordDto>();
+
+        CreateMap<Order, OrderDto>()
+       .ForMember(dest => dest.ShortId,
+           opt => opt.MapFrom(src => src.Id.ToString().Substring(0, 8).ToUpper()))
+       .ForMember(dest => dest.CustomerName,
+           opt => opt.MapFrom(src => src.Customer.Name));
     }
 }
