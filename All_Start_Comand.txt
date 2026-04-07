@@ -1,0 +1,24 @@
+Start AP! first, then Blazor, then React Admin, and finally RabbitMQ Management.
+
+API:
+dotnet run --project OrderManagement.API/OrderManagement.API.csproj
+
+Blazor:
+dotnet run --project BlazorPortal/BlazorPortal.csproj
+
+React Admin:
+cd admin-dashboard
+npm start
+
+RabbitMQ Management:
+
+— Blazor
+http://localhost:5017 
+— API
+http://localhost:5292/swagger 
+— React Admin
+http://localhost:3000 
+- RabbitMQ Management
+http://localhost:15672 
+
+
