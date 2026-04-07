@@ -42,4 +42,36 @@ public class GetOrdersQueryHandler
 
         return _mapper.Map<List<OrderDto>>(orders);
     }
+    public record GetOrdersByEmailQuery(string Email) : IRequest<List<OrderDto>>;
+
+    public class GetOrdersByEmailQueryHandler
+        : IRequestHandler<GetOrdersByEmailQuery, List<OrderDto>>
+    {
+        private readonly OrderDbContext _db;
+        private readonly IMapper _mapper;
+
+        public GetOrdersByEmailQueryHandler(OrderDbContext db, IMapper mapper)
+        {
+            _db = db;
+            _mapper = mapper;
+        }
+
+        public async Task<List<OrderDto>> Handle(
+            GetOrdersByEmailQuery request,
+            CancellationToken cancellationToken)
+        {
+            var orders = await _db.Orders
+                .Include(o => o.Customer)
+                .Include(o => o.Items)
+                .Include(o => o.PaymentRecord)
+                .Include(o => o.ShipmentRecord)
+                .Include(o => o.InventoryRecord)
+                .Where(o => o.Customer.Email == request.Email ||
+                            o.Customer.Name == request.Email)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync(cancellationToken);
+
+            return _mapper.Map<List<OrderDto>>(orders);
+        }
+    }
 }

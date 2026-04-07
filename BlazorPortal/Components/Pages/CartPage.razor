@@ -1,0 +1,53 @@
+﻿@page "/cart"
+@inject BlazorPortal.Services.CartState Cart
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<h2>🛒 Your Cart</h2>
+
+@if (!Cart.Items.Any())
+{
+    <p>Your cart is empty. <a href="/">Browse products</a></p>
+}
+else
+{
+    <table style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="text-align:left;">Product</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Cart.Items)
+            {
+                <tr style="border-bottom:1px solid #eee;">
+                    <td>@item.Product.Name</td>
+                    <td style="text-align:center;">@item.Quantity</td>
+                    <td style="text-align:center;">€@item.Product.Price</td>
+                    <td style="text-align:center;">
+                        €@(item.Product.Price * item.Quantity)
+                    </td>
+                    <td>
+                        <button @onclick="() => Cart.RemoveItem(item.Product.Id)">
+                            Remove
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h3 style="margin-top:16px;">Total: €@Cart.Total</h3>
+
+    <button @onclick="GoToCheckout">
+        Proceed to Checkout ✅
+    </button>
+}
+
+    @code{
+    private void GoToCheckout() => Nav.NavigateTo("/checkout");
+                        }

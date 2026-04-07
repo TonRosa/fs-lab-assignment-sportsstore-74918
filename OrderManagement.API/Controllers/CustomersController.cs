@@ -5,6 +5,7 @@ using OrderManagement.API.CQRS.Queries;
 using OrderManagement.API.Data;
 using OrderManagement.API.DTOs;
 using OrderManagement.API.Models;
+using static OrderManagement.API.CQRS.Queries.GetOrdersQueryHandler;
 
 namespace OrderManagement.API.Controllers;
 
@@ -42,6 +43,14 @@ public class CustomersController : ControllerBase
         await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetCustomerOrders),
             new { id = customer.Id }, customer);
+    }
+    // GET /api/customers/search?email=john@example.com
+    [HttpGet("search")]
+    public async Task<ActionResult<List<OrderDto>>> SearchByEmail(
+        [FromQuery] string email)
+    {
+        var result = await _mediator.Send(new GetOrdersByEmailQuery(email));
+        return Ok(result);
     }
 }
 

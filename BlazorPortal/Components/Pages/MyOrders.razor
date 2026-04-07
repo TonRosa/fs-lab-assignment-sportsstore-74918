@@ -1,0 +1,139 @@
+﻿@page "/my-orders"
+@inject BlazorPortal.Services.OrderApiService ApiService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<h2>📋 My Orders</h2>
+
+<div style="margin-bottom:16px;">
+    <p>Search by Customer ID, Name or Email:</p>
+
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <input placeholder="Enter Name or Email"
+               @bind="_searchText"
+               style="width:280px; padding:6px;" />
+        <button @onclick="SearchByEmail">🔍 Search</button>
+    </div>
+
+    <div style="display:flex; gap:8px;">
+        <input placeholder="Or enter Customer ID (GUID)"
+               @bind="_customerId"
+               style="width:280px; padding:6px;" />
+        <button @onclick="LoadById">Load by ID</button>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_error != null)
+{
+    <p style="color:red;">@_error</p>
+}
+else if (_orders != null)
+{
+    @if (!_orders.Any())
+    {
+        <p>No orders found.</p>
+    }
+    else
+    {
+        <p>Found <strong>@_orders.Count</strong> order(s)</p>
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f5f5f5;">
+                    <th style="text-align:left; padding:8px;">Order ID</th>
+                    <th style="text-align:left; padding:8px;">Customer</th>
+                    <th style="text-align:left; padding:8px;">Date</th>
+                    <th style="text-align:left; padding:8px;">Status</th>
+                    <th style="text-align:left; padding:8px;">Total</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var order in _orders)
+                {
+                    <tr style="border-bottom:1px solid #eee;">
+                        <td style="padding:8px;">#@order.ShortId</td>
+                        <td style="padding:8px;">@order.CustomerName</td>
+                        <td style="padding:8px;">
+                            @order.CreatedAt.ToShortDateString()
+                        </td>
+                        <td style="padding:8px;">
+                            <span style="@GetStatusStyle(order.Status)">
+                                @order.Status
+                            </span>
+                        </td>
+                        <td style="padding:8px;">€@order.TotalAmount</td>
+                        <td style="padding:8px;">
+                            <button @onclick="() => ViewOrder(order.Id)">
+                                View
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private string _customerId = string.Empty;
+    private string _searchText = string.Empty;
+    private List<BlazorPortal.Services.OrderDto>? _orders;
+    private bool _loading = false;
+    private string? _error;
+
+    private async Task LoadById()
+    {
+        if (string.IsNullOrWhiteSpace(_customerId))
+        {
+            _error = "Please enter a Customer ID.";
+            return;
+        }
+
+        if (!Guid.TryParse(_customerId, out var id))
+        {
+            _error = "Invalid Customer ID format.";
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        _orders = await ApiService.GetCustomerOrdersAsync(id);
+        _loading = false;
+    }
+
+    private async Task SearchByEmail()
+    {
+        if (string.IsNullOrWhiteSpace(_searchText))
+        {
+            _error = "Please enter a name or email.";
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        _orders = await ApiService.SearchOrdersByEmailAsync(_searchText);
+        _loading = false;
+    }
+
+    private void ViewOrder(Guid id) => Nav.NavigateTo("/orders/" + id);
+
+    private string GetStatusStyle(Shared.Contracts.Enums.OrderStatus status)
+    {
+        return status switch
+        {
+            Shared.Contracts.Enums.OrderStatus.Completed =>
+                "color:green; font-weight:bold;",
+            Shared.Contracts.Enums.OrderStatus.Failed =>
+                "color:red; font-weight:bold;",
+            Shared.Contracts.Enums.OrderStatus.PaymentApproved =>
+                "color:blue;",
+            Shared.Contracts.Enums.OrderStatus.PaymentFailed =>
+                "color:orange;",
+            _ => "color:gray;"
+        };
+    }
+}

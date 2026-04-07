@@ -1,0 +1,91 @@
+﻿@page "/checkout"
+@inject BlazorPortal.Services.OrderApiService ApiService
+@inject BlazorPortal.Services.CartState Cart
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<h2>📦 Checkout</h2>
+
+@if (!Cart.Items.Any())
+{
+    <p>Your cart is empty. <a href="/">Browse products</a></p>
+}
+else
+{
+    <h4>Order Summary</h4>
+    <ul>
+        @foreach (var item in Cart.Items)
+        {
+            <li>@item.Product.Name x@(item.Quantity) — €@(item.Product.Price* item.Quantity)</li>
+        }
+    </ul>
+    <p><strong>Total: €@Cart.Total</strong></p>
+
+    <h4>Your Details</h4>
+    <input placeholder="Full Name" @bind="_name" style="display:block; margin:8px 0; width:300px;" />
+    <input placeholder="Email" @bind="_email" style="display:block; margin:8px 0; width:300px;" />
+
+    <h4>Shipping Address</h4>
+    <input placeholder="Address Line 1" @bind="_address.Line1" style="display:block; margin:8px 0; width:300px;" />
+    <input placeholder="City" @bind="_address.City" style="display:block; margin:8px 0; width:300px;" />
+    <input placeholder="State" @bind="_address.State" style="display:block; margin:8px 0; width:300px;" />
+    <input placeholder="Country" @bind="_address.Country" style="display:block; margin:8px 0; width:300px;" />
+    <input placeholder="Zip" @bind="_address.Zip" style="display:block; margin:8px 0; width:300px;" />
+
+    @if (_error != null)
+    {
+        <p style="color:red;">@_error</p>
+    }
+
+    <button @onclick="PlaceOrder" disabled="@_processing" style="margin-top:16px;">
+        @(_processing ? "Processing..." : "Place Order 🚀")
+    </button>
+}
+
+@code {
+    private string _name = string.Empty;
+    private string _email = string.Empty;
+    private string? _error;
+    private bool _processing = false;
+    private BlazorPortal.Services.ShippingAddressInput _address = new();
+
+    private async Task PlaceOrder()
+    {
+        if (string.IsNullOrWhiteSpace(_name) ||
+            string.IsNullOrWhiteSpace(_email) ||
+            string.IsNullOrWhiteSpace(_address.Line1) ||
+            string.IsNullOrWhiteSpace(_address.City) ||
+            string.IsNullOrWhiteSpace(_address.Country))
+        {
+            _error = "Please fill in all required fields.";
+            return;
+        }
+
+        _processing = true;
+        _error = null;
+        _address.FullName = _name;
+
+        // Create or get customer
+        var customer = await ApiService.CreateCustomerAsync(_name, _email);
+        if (customer == null)
+        {
+            _error = "Failed to create customer. Please try again.";
+            _processing = false;
+            return;
+        }
+
+        // Place order
+        var order = await ApiService.CheckoutAsync(
+            customer.Id, Cart.Items, _address);
+
+        if (order == null)
+        {
+            _error = "Failed to place order. Please try again.";
+            _processing = false;
+            return;
+        }
+
+        Cart.Clear();
+        Nav.NavigateTo($"/orders/{order.Id}");
+    }
+}

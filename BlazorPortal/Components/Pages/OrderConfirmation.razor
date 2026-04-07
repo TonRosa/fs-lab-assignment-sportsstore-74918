@@ -1,0 +1,37 @@
+﻿@page "/orders/{OrderId:guid}"
+@inject BlazorPortal.Services.OrderApiService ApiService
+@rendermode InteractiveServer
+
+<h2>✅ Order Confirmation</h2>
+
+@if (_order == null)
+{
+    <p>Loading order details...</p>
+}
+else
+{
+    <p>Thank you! Your order has been placed.</p>
+    <p><strong>Order ID:</strong> #@_order.ShortId</p>
+    <p><strong>Status:</strong> @_order.Status</p>
+    <p><strong>Total:</strong> €@_order.TotalAmount</p>
+
+    <h4>Items Ordered:</h4>
+    <ul>
+        @foreach (var item in _order.Items)
+        {
+            <li>@item.ProductName x@item.Quantity — €@item.TotalPrice</li>
+        }
+    </ul>
+
+    <a href="/my-orders">View All My Orders</a>
+}
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+    private BlazorPortal.Services.OrderDto? _order;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _order = await ApiService.GetOrderAsync(OrderId);
+    }
+}
