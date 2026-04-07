@@ -94,6 +94,15 @@ public class PaymentWorker : BackgroundService
 
         var isApproved = SimulatePayment();
 
+        // Retry once if failed
+        if (!isApproved)
+        {
+            Log.Warning(
+                "[{Service}] Payment failed first attempt for Order {OrderId}, retrying...",
+                _serviceName, message.OrderId);
+            await Task.Delay(1000);
+            isApproved = SimulatePayment();
+        }
         if (isApproved)
         {
             var approved = new PaymentApproved

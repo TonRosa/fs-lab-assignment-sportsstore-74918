@@ -38,6 +38,9 @@ try
     // RabbitMQ Publisher
     builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
 
+    // Order Status Listener
+    builder.Services.AddHostedService<OrderStatusListener>();
+
     // CORS for Blazor and React frontends
     builder.Services.AddCors(options =>
     {

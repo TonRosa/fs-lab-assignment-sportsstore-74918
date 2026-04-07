@@ -59,9 +59,18 @@ public class CheckoutOrderCommandHandler : IRequestHandler<CheckoutOrderCommand,
             ShippingZip = dto.ShippingAddress.Zip
         };
 
+        // Reduce stock
+        foreach (var item in items)
+        {
+            var product = await _db.Products.FindAsync(item.ProductId);
+            if (product != null)
+            {
+                product.Stock -= item.Quantity;
+            }
+        }
+
         _db.Orders.Add(order);
         await _db.SaveChangesAsync(cancellationToken);
-
         // Publish to RabbitMQ
         var event_ = new Shared.Contracts.Events.OrderSubmitted
         {

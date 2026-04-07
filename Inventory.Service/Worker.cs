@@ -133,9 +133,21 @@ public class InventoryWorker : BackgroundService
 
     private bool SimulateStockCheck(List<OrderItemDto> items)
     {
-        // Simulate: 90% of orders pass inventory check
-        var random = new Random();
-        return random.NextDouble() > 0.1;
+        // Check if any item has quantity > stock limit
+        foreach (var item in items)
+        {
+            // Stadium has stock of 10, everything else 20
+            var maxStock = item.ProductId == 5 ? 10 : 20;
+            if (item.Quantity > maxStock)
+            {
+                Log.Warning(
+                    "[{Service}] Product {ProductId} requested {Qty} " +
+                    "but only {Stock} available",
+                    _serviceName, item.ProductId, item.Quantity, maxStock);
+                return false;
+            }
+        }
+        return true;
     }
 
     private async Task PublishAsync<T>(T message, string queueName)

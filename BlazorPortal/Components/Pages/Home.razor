@@ -19,37 +19,220 @@ else
     <div style="display:flex; flex-wrap:wrap; gap:16px;">
         @foreach (var product in _products)
         {
-            <div style="border:1px solid #ccc; padding:16px; width:220px; border-radius:8px;">
+            var cartQty = Cart.Items
+            .FirstOrDefault(i => i.Product.Id == product.Id)?.Quantity ?? 0;
+            var remaining = product.Stock - cartQty;
+
+            <div style="border:1px solid #ccc; padding:16px; width:220px;
+                                border-radius:8px; background:white;">
                 <h4>@product.Name</h4>
-                <p>@product.Description</p>
+                <p style="color:gray; font-size:13px;">@product.Description</p>
                 <p><strong>€@product.Price</strong></p>
-                <p>Category: @product.Category</p>
-                <button @onclick="() => AddToCart(product)">
-                    Add to Cart 🛒
-                </button>
+                <p style="font-size:13px;">Category: @product.Category</p>
+
+                @if (remaining <= 0)
+                {
+                    <p style="color:red; font-weight:bold;">❌ Out of Stock</p>
+                    <button disabled style="opacity:0.5;">Add to Cart</button>
+                }
+                else
+                {
+                    <p style="color:@(remaining < 10 ? "orange" : "green");
+                                          font-size:13px;">
+                        @(remaining < 10 ? $"⚠️ Only {remaining} left!"
+                                    : $"✅ In Stock ({remaining})")
+        </p>
+
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                        <input type="number"
+                               min="1"
+                               max="@remaining"
+                               @bind="_quantities[product.Id]"
+                               style="width:60px; padding:4px;" />
+                        <button @onclick="() => AddToCart(product)">
+                            🛒 Add
+                        </button>
+                    </div>
+                }
             </div>
         }
     </div>
 }
 
-@if (_addedMessage != null)
+@if (_errorMessage != null)
 {
-    <p style="color:green; margin-top:12px;">@_addedMessage</p>
+    <div style="position:fixed; top:20px; right:20px; background:#e74c3c;
+                    color:white; padding:16px; border-radius:8px; z-index:1000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+        ⚠️ @_errorMessage
+        <button @onclick="() => _errorMessage = null"
+                style="margin-left:12px; background:transparent;
+                           color:white; border:1px solid white;
+                           border-radius:4px; cursor:pointer;">
+            ✕
+        </button>
+    </div>
 }
+
+@if (_successMessage != null)
+{
+    <div style="position:fixed; top:20px; right:20px; background:#2ecc71;
+                    color:white; padding:16px; border-radius:8px; z-index:1000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+        ✅ @_successMessage
+        <button @onclick="() => _successMessage = null"
+                style="margin-left:12px; background:transparent;
+                           color:white; border:1px solid white;
+                           border-radius:4px; cursor:pointer;">
+            ✕
+        </button>
+    </div>
+}
+
+@* Cart Popup *@
+@if (_showCart)
+{
+    <div style="position:fixed; top:0; right:0; width:350px; height:100vh;
+                    background:white; box-shadow:-4px 0 12px rgba(0,0,0,0.2);
+                    z-index:999; padding:20px; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between;
+                        align-items:center; margin-bottom:16px;">
+            <h3>🛒 Your Cart (@Cart.Count items)</h3>
+            <button @onclick="() => _showCart = false"
+                    style="background:none; border:none;
+                               font-size:20px; cursor:pointer;">
+                ✕
+            </button>
+        </div>
+
+        @if (!Cart.Items.Any())
+        {
+            <p style="color:gray;">Your cart is empty</p>
+        }
+        else
+        {
+            @foreach (var item in Cart.Items)
+            {
+                <div style="display:flex; justify-content:space-between;
+                                        align-items:center; padding:8px 0;
+                                        border-bottom:1px solid #eee;">
+                    <div>
+                        <strong>@item.Product.Name</strong><br />
+                        <span style="font-size:13px; color:gray;">
+                            @item.Quantity x €@item.Product.Price
+                        </span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <strong>€@(item.Quantity* item.Product.Price)</strong>
+                        <button @onclick="() => Cart.RemoveItem(item.Product.Id)"
+                                style="background:#e74c3c; color:white;
+                                                   border:none; border-radius:4px;
+                                                   padding:2px 8px; cursor:pointer;">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <div style="margin-top:16px; padding-top:16px;
+                                border-top:2px solid #333;">
+                <h4>Total: €@Cart.Total</h4>
+                <button @onclick="GoToCheckout"
+                        style="width:100%; padding:12px; background:#2ecc71;
+                                       color:white; border:none; border-radius:8px;
+                                       font-size:16px; cursor:pointer; margin-top:8px;">
+                    Proceed to Checkout ✅
+                </button>
+                <button @onclick="() => _showCart = false"
+                        style="width:100%; padding:12px; background:#3498db;
+                       color:white; border:none; border-radius:8px;
+                       font-size:16px; cursor:pointer; margin-top:8px;">
+                    🛍️ Continue Shopping
+                </button>
+            </div>
+        }
+    </div>
+
+    @* Dark overlay *@
+    <div @onclick="() => _showCart = false"
+         style="position:fixed; top:0; left:0; width:100vw; height:100vh;
+                    background:rgba(0,0,0,0.4); z-index:998;">
+    </div>
+}
+
+@* Floating Cart Button *@
+<div @onclick="() => _showCart = true"
+     style="position:fixed; bottom:30px; right:30px; background:#3498db;
+            color:white; padding:16px 20px; border-radius:50px;
+            cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.3);
+            z-index:997; font-size:18px;">
+    🛒 @Cart.Count
+</div>
 
 @code {
     private List<BlazorPortal.Services.ProductDto>? _products;
-    private string? _addedMessage;
+    private Dictionary<long, int> _quantities = new();
+    private string? _errorMessage;
+    private string? _successMessage;
+    private bool _showCart = false;
 
     protected override async Task OnInitializedAsync()
     {
         _products = await ApiService.GetProductsAsync();
+        if (_products != null)
+        {
+            foreach (var p in _products)
+                _quantities[p.Id] = 1;
+        }
+        Cart.OnChange += StateHasChanged;
     }
 
     private void AddToCart(BlazorPortal.Services.ProductDto product)
     {
-        Cart.AddItem(product);
-        _addedMessage = $"✅ {product.Name} added to cart!";
+        var qty = _quantities.ContainsKey(product.Id)
+            ? _quantities[product.Id] : 1;
+
+        var currentInCart = Cart.Items
+            .FirstOrDefault(i => i.Product.Id == product.Id)?.Quantity ?? 0;
+
+        if (qty <= 0)
+        {
+            _errorMessage = "Please enter a valid quantity!";
+            return;
+        }
+
+        if (currentInCart + qty > product.Stock)
+        {
+            _errorMessage = $"Sorry! Only {product.Stock - currentInCart} " +
+                           $"'{product.Name}' available. " +
+                           $"You already have {currentInCart} in your cart.";
+            return;
+        }
+
+        Cart.AddItem(product, qty);
+        _quantities[product.Id] = 1;
+        _successMessage = $"✅ {qty}x {product.Name} added to cart!";
+        _showCart = true;
+
+        // Auto hide success after 3 seconds
+        _ = HideSuccessAsync();
+    }
+
+    private async Task HideSuccessAsync()
+    {
+        await Task.Delay(3000);
+        _successMessage = null;
         StateHasChanged();
+    }
+
+    private void GoToCheckout()
+    {
+        _showCart = false;
+        Nav.NavigateTo("/checkout");
+    }
+
+    public void Dispose()
+    {
+        Cart.OnChange -= StateHasChanged;
     }
 }
