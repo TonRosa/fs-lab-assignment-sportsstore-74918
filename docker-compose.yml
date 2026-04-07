@@ -75,3 +75,26 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+
+  blazorportal:
+    build:
+      context: .
+      dockerfile: BlazorPortal/Dockerfile
+    container_name: blazorportal
+    ports:
+      - "5017:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ApiBaseUrl=http://orderapi:8080
+    depends_on:
+      - orderapi
+
+  admindashboard:
+    build:
+      context: ./admin-dashboard
+      dockerfile: Dockerfile
+    container_name: admindashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - orderapi
