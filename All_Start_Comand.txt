@@ -1,5 +1,17 @@
 Start AP! first, then Blazor, then React Admin, and finally RabbitMQ Management.
 
+build everything
+dotnet build SportsSln.sln
+
+build API
+dotnet build OrderManagement.API/OrderManagement.API.csproj
+
+build Blazor
+dotnet build BlazorPortal/BlazorPortal.csproj
+
+# Terminal 1 - Backend
+docker-compose up -d
+
 API:
 dotnet run --project OrderManagement.API/OrderManagement.API.csproj
 
@@ -22,3 +34,5 @@ http://localhost:3000
 http://localhost:15672 
 
 
+force to stop
+Get-Process | Where-Object {$_.Name -like "dotnet*"} | Stop-Process -Force

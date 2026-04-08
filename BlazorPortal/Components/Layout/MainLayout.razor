@@ -1,23 +1,96 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div style="min-height:100vh; background:#60BAE0; font-family:'Segoe UI', sans-serif;">
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+    @* Top Navigation Bar *@
+    <nav style="background:linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                padding:0 40px; display:flex; align-items:center;
+                justify-content:space-between; height:65px;
+                box-shadow:0 2px 15px rgba(0,0,0,0.4);
+                position:sticky; top:0; z-index:500;">
+
+        @* Logo *@
+        <a href="/" style="display:flex; align-items:center; gap:10px;
+                           text-decoration:none;">
+            <span style="font-size:30px;">🏆</span>
+            <span style="color:white; font-size:22px; font-weight:800;
+                         letter-spacing:1px;">
+                SPORT<span style="color:#e94560;">STORE</span>
+            </span>
+        </a>
+
+        @* Nav Links *@
+        <div style="display:flex; gap:4px; align-items:center;">
+            <NavLink href="/"
+                     Match="NavLinkMatch.All"
+                     style="color:rgba(25,255,255,0.8); text-decoration:none;
+                            padding:8px 18px; border-radius:25px;
+                            font-size:22px; font-weight:500;
+                            transition:all 0.2s;"
+                     ActiveClass="active-nav">
+                🏠 Home
+            </NavLink>
+            <NavLink href="/cart"
+                     style="color:rgba(25,255,255,0.8); text-decoration:none;
+                            padding:8px 18px; border-radius:25px;
+                            font-size:22px; font-weight:500;"
+                     ActiveClass="active-nav">
+                🛒 Cart
+            </NavLink>
+            <NavLink href="/my-orders"
+                     style="color:rgba(25,255,255,0.8); text-decoration:none;
+                            padding:8px 18px; border-radius:25px;
+                            font-size:22px; font-weight:500;"
+                     ActiveClass="active-nav">
+                📋 My Orders
+            </NavLink>
         </div>
+    </nav>
 
-        <article class="content px-4">
-            @Body
-        </article>
+    @* Page Content *@
+    <main style="max-width:1200px; margin:0 auto; padding:30px 20px;">
+        @Body
     </main>
+
+    @* Footer *@
+    <footer style="background:linear-gradient(135deg, #1a1a2e, #16213e);
+                   color:white; text-align:center; padding:30px 20px;
+                   margin-top:60px;">
+        <div style="font-size:28px; margin-bottom:8px;">🏆</div>
+        <p style="margin:0; font-size:18px; font-weight:bold;">
+            SPORT<span style="color:#e94560;">STORE</span>
+        </p>
+        <p style="margin:8px 0 0; opacity:0.5; font-size:13px;">
+            © 2026 SportStore. All rights reserved.
+        </p>
+    </footer>
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+<style>
+    .active-nav {
+        background: rgba(233, 69, 96, 0.3) !important;
+        color: white !important;
+    }
+
+    button {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        button:hover {
+            opacity: 0.85;
+            transform: translateY(-1px);
+        }
+
+    input {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        outline: none;
+        transition: border 0.2s;
+    }
+
+        input:focus {
+            border-color: #3498db;
+        }
+</style>

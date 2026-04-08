@@ -1,3 +1,35 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #60BAE0;
+    color: #333;
+}
+
+h1, h2, h3, h4 {
+    color: #1a1a2e;
+}
+
+a {
+    color: #3498db;
+}
+
+/* Remove default Blazor sidebar styles */
+.sidebar {
+    display: none !important;
+}
+
+.main {
+    padding: 0 !important;
+}
+
+.top-row {
+    display: none !important;
+}
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }

@@ -1,37 +1,258 @@
 ﻿@page "/orders/{OrderId:guid}"
 @inject BlazorPortal.Services.OrderApiService ApiService
+@inject NavigationManager Nav
 @rendermode InteractiveServer
 
-<h2>✅ Order Confirmation</h2>
+<div style="max-width:600px; margin:0 auto; padding:20px;">
 
-@if (_order == null)
-{
-    <p>Loading order details...</p>
-}
-else
-{
-    <p>Thank you! Your order has been placed.</p>
-    <p><strong>Order ID:</strong> #@_order.ShortId</p>
-    <p><strong>Status:</strong> @_order.Status</p>
-    <p><strong>Total:</strong> €@_order.TotalAmount</p>
+    @if (_order == null)
+    {
+        <div style="text-align:center; padding:40px;">
+            <p>⏳ Loading order details...</p>
+        </div>
+    }
+    else
+    {
+        @* Order Status Banner *@
+        <div style="padding:20px; border-radius:12px; margin-bottom:24px;
+                    background:@GetStatusBackground(); color:white; text-align:center;">
+            <h2>@GetStatusIcon() @GetStatusMessage()</h2>
+            <p style="margin:0; opacity:0.9;">Order #@_order.ShortId</p>
+        </div>
 
-    <h4>Items Ordered:</h4>
-    <ul>
-        @foreach (var item in _order.Items)
+        @* Order Info *@
+        <div style="background:white; padding:20px; border-radius:12px;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:16px;">
+            <h4>📦 Order Details</h4>
+            <p><strong>Date:</strong> @_order.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</p>
+            <p>
+                <strong>Status:</strong>
+                <span style="padding:4px 12px; border-radius:20px;
+                             background:@GetStatusBackground(); color:white;">
+                    @_order.Status
+                </span>
+            </p>
+            <p><strong>Total:</strong> €@_order.TotalAmount</p>
+            @if (_order.FailureReason != null)
+            {
+                <p style="color:red;"><strong>Reason:</strong> @_order.FailureReason</p>
+            }
+        </div>
+
+        @* Payment Status *@
+        <div style="background:white; padding:20px; border-radius:12px;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:16px;">
+            <h4>💳 Payment Status</h4>
+            @if (_order.PaymentRecord == null)
+            {
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:24px;">⏳</span>
+                    <div>
+                        <p style="margin:0; font-weight:bold;">Processing Payment...</p>
+                        <p style="margin:0; color:gray; font-size:13px;">
+                            Please wait while we process your payment
+                        </p>
+                    </div>
+                </div>
+            }
+            else if (_order.PaymentRecord.IsApproved)
+            {
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:24px;">✅</span>
+                    <div>
+                        <p style="margin:0; font-weight:bold; color:green;">
+                            Payment Approved!
+                        </p>
+                        <p style="margin:0; color:gray; font-size:13px;">
+                            Transaction: @_order.PaymentRecord.TransactionId
+                        </p>
+                        <p style="margin:0; color:gray; font-size:13px;">
+                            Processed: @_order.PaymentRecord.ProcessedAt
+                            .ToLocalTime().ToString("dd MMM yyyy HH:mm")
+                        </p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:24px;">❌</span>
+                    <div>
+                        <p style="margin:0; font-weight:bold; color:red;">
+                            Payment Failed
+                        </p>
+                        <p style="margin:0; color:gray; font-size:13px;">
+                            @_order.PaymentRecord.FailureReason
+                        </p>
+                        <button @onclick="RetryOrder"
+                                style="margin-top:8px; padding:8px 16px;
+                                           background:#e74c3c; color:white;
+                                           border:none; border-radius:8px;
+                                           cursor:pointer;">
+                            🔄 Try Again
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Shipping Status *@
+        <div style="background:white; padding:20px; border-radius:12px;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:16px;">
+            <h4>🚚 Shipping Status</h4>
+            @if (_order.ShipmentRecord == null)
+            {
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:24px;">⏳</span>
+                    <p style="margin:0; color:gray;">
+                        Waiting for payment confirmation...
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:24px;">📦</span>
+                    <div>
+                        <p style="margin:0; font-weight:bold; color:green;">
+                            Shipment Created!
+                        </p>
+                        <p style="margin:0; color:gray; font-size:13px;">
+                            Tracking: <strong>@_order.ShipmentRecord.TrackingNumber</strong>
+                        </p>
+                        <p style="margin:0; color:gray; font-size:13px;">
+                            Estimated Dispatch: @_order.ShipmentRecord.EstimatedDispatch
+                            .ToLocalTime().ToString("dd MMM yyyy")
+                        </p>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Order Items *@
+        <div style="background:white; padding:20px; border-radius:12px;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:16px;">
+            <h4>🛒 Items Ordered</h4>
+            @foreach (var item in _order.Items)
+            {
+                <div style="display:flex; justify-content:space-between;
+                                padding:8px 0; border-bottom:1px solid #f0f0f0;">
+                    <span>@item.ProductName x@(item.Quantity)</span>
+                    <strong>€@item.TotalPrice</strong>
+                </div>
+            }
+            <div style="display:flex; justify-content:space-between;
+                        padding:12px 0; font-size:18px;">
+                <strong>Total</strong>
+                <strong>€@_order.TotalAmount</strong>
+            </div>
+        </div>
+
+        @* Action Buttons *@
+        <div style="display:flex; gap:12px; margin-top:16px;">
+            <button @onclick='() => Nav.NavigateTo("/")'
+                    style="flex:1; padding:14px; background:#3498db;
+                           color:white; border:none; border-radius:8px;
+                           font-size:16px; cursor:pointer;">
+                🛍️ Continue Shopping
+            </button>
+            <button @onclick='() => Nav.NavigateTo("/my-orders")'
+                    style="flex:1; padding:14px; background:#2ecc71;
+                           color:white; border:none; border-radius:8px;
+                           font-size:16px; cursor:pointer;">
+                📋 My Orders
+            </button>
+        </div>
+
+        @* Auto refresh if still processing *@
+        @if (_shouldRefresh)
         {
-            <li>@item.ProductName x@item.Quantity — €@item.TotalPrice</li>
+            <p style="text-align:center; color:gray; margin-top:16px; font-size:13px;">
+                🔄 Auto-refreshing every 3 seconds...
+            </p>
         }
-    </ul>
-
-    <a href="/my-orders">View All My Orders</a>
-}
+    }
+</div>
 
 @code {
     [Parameter] public Guid OrderId { get; set; }
     private BlazorPortal.Services.OrderDto? _order;
+    private bool _shouldRefresh = true;
+    private System.Threading.Timer? _timer;
 
     protected override async Task OnInitializedAsync()
     {
-        _order = await ApiService.GetOrderAsync(OrderId);
+        await LoadOrder();
+
+        // Auto refresh every 3 seconds while processing
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            if (_shouldRefresh)
+            {
+                await LoadOrder();
+                await InvokeAsync(StateHasChanged);
+            }
+        }, null, 3000, 3000);
+    }
+
+    private async Task LoadOrder()
+    {
+        try
+        {
+            _order = await ApiService.GetOrderAsync(OrderId);
+            // Stop refreshing when order reaches final state
+            if (_order?.Status == Shared.Contracts.Enums.OrderStatus.Completed ||
+                _order?.Status == Shared.Contracts.Enums.OrderStatus.Failed ||
+                _order?.Status == Shared.Contracts.Enums.OrderStatus.PaymentFailed ||
+                _order?.Status == Shared.Contracts.Enums.OrderStatus.InventoryFailed)
+            {
+                _shouldRefresh = false;
+                _timer?.Dispose();
+            }
+        }
+        catch (Exception)
+        {
+            _shouldRefresh = false;
+        }
+    }
+
+    private void RetryOrder() => Nav.NavigateTo("/");
+
+    private string GetStatusBackground() => _order?.Status switch
+    {
+        Shared.Contracts.Enums.OrderStatus.Completed => "#2ecc71",
+        Shared.Contracts.Enums.OrderStatus.Failed => "#e74c3c",
+        Shared.Contracts.Enums.OrderStatus.PaymentFailed => "#e74c3c",
+        Shared.Contracts.Enums.OrderStatus.InventoryFailed => "#e74c3c",
+        Shared.Contracts.Enums.OrderStatus.PaymentApproved => "#3498db",
+        Shared.Contracts.Enums.OrderStatus.ShippingCreated => "#3498db",
+        _ => "#f39c12"
+    };
+
+    private string GetStatusIcon() => _order?.Status switch
+    {
+        Shared.Contracts.Enums.OrderStatus.Completed => "🎉",
+        Shared.Contracts.Enums.OrderStatus.Failed => "❌",
+        Shared.Contracts.Enums.OrderStatus.PaymentFailed => "❌",
+        Shared.Contracts.Enums.OrderStatus.InventoryFailed => "❌",
+        Shared.Contracts.Enums.OrderStatus.PaymentApproved => "✅",
+        _ => "⏳"
+    };
+
+    private string GetStatusMessage() => _order?.Status switch
+    {
+        Shared.Contracts.Enums.OrderStatus.Completed => "Order Completed!",
+        Shared.Contracts.Enums.OrderStatus.Failed => "Order Failed",
+        Shared.Contracts.Enums.OrderStatus.PaymentFailed => "Payment Failed",
+        Shared.Contracts.Enums.OrderStatus.InventoryFailed => "Out of Stock",
+        Shared.Contracts.Enums.OrderStatus.PaymentApproved => "Payment Approved!",
+        Shared.Contracts.Enums.OrderStatus.ShippingCreated => "Shipment Created!",
+        Shared.Contracts.Enums.OrderStatus.Submitted => "Order Submitted",
+        _ => "Processing..."
+    };
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
     }
 }
