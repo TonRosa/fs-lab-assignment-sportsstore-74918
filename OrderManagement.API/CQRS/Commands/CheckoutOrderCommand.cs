@@ -101,8 +101,9 @@ public class CheckoutOrderCommandHandler : IRequestHandler<CheckoutOrderCommand,
             OrderManagement.API.Messaging.QueueNames.OrderSubmitted);
 
         Serilog.Log.Information(
-            "[OrderAPI] Order {OrderId} submitted for customer {CustomerId}",
-            order.Id, order.CustomerId);
+            "[OrderAPI] Order {OrderId} submitted for customer {CustomerId} " +
+            "CorrelationId {CorrelationId}",
+            order.Id, order.CustomerId, order.CorrelationId);
 
         // Return with customer info
         var result = _mapper.Map<OrderDto>(order);

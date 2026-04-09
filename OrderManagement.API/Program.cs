@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Serilog.Events;
 using OrderManagement.API.Data;
 using OrderManagement.API.Messaging;
 using OrderManagement.API.Mapping;
@@ -8,10 +9,10 @@ using OrderManagement.API.Mapping;
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.File("logs/orderapi-.txt", rollingInterval: RollingInterval.Day)
+    .WriteTo.Seq("http://localhost:5341")
     .Enrich.FromLogContext()
     .Enrich.WithProperty("ServiceName", "OrderManagement.API")
     .CreateLogger();
-
 try
 {
     Log.Information("[OrderAPI] Starting up...");

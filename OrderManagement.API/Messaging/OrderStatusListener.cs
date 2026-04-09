@@ -65,8 +65,8 @@ public class OrderStatusListener : BackgroundService
             await UpdateOrderAsync(msg.OrderId, OrderStatus.InventoryConfirmed);
             await UpdateInventoryRecordAsync(msg.OrderId, true, null);
             Log.Information(
-                "[{Service}] Order {OrderId} inventory confirmed",
-                _serviceName, msg.OrderId);
+     "[{Service}] Order {OrderId} inventory confirmed CorrelationId {CorrelationId}",
+     _serviceName, msg.OrderId, msg.CorrelationId);
         }, stoppingToken);
 
         // Listen to inventory failed
@@ -78,8 +78,8 @@ public class OrderStatusListener : BackgroundService
                 msg.Reason);
             await UpdateInventoryRecordAsync(msg.OrderId, false, msg.Reason);
             Log.Warning(
-                "[{Service}] Order {OrderId} inventory failed: {Reason}",
-                _serviceName, msg.OrderId, msg.Reason);
+                "[{Service}] Order {OrderId} inventory failed: {Reason}{CorrelationId}",
+                _serviceName, msg.OrderId, msg.Reason, msg.CorrelationId);
         }, stoppingToken);
 
         // Listen to payment approved
@@ -91,8 +91,8 @@ public class OrderStatusListener : BackgroundService
             await UpdatePaymentRecordAsync(msg.OrderId, true,
                 msg.TransactionId, null);
             Log.Information(
-                "[{Service}] Order {OrderId} payment approved",
-                _serviceName, msg.OrderId);
+                "[{Service}] Order {OrderId} payment approved{CorrelationId}",
+                _serviceName, msg.OrderId, msg.CorrelationId);
         }, stoppingToken);
 
         // Listen to payment rejected
@@ -104,8 +104,8 @@ public class OrderStatusListener : BackgroundService
                 msg.Reason);
             await UpdatePaymentRecordAsync(msg.OrderId, false, null, msg.Reason);
             Log.Warning(
-                "[{Service}] Order {OrderId} payment rejected: {Reason}",
-                _serviceName, msg.OrderId, msg.Reason);
+                "[{Service}] Order {OrderId} payment rejected: {Reason}{CorrelationId}",
+                _serviceName, msg.OrderId, msg.Reason, msg.CorrelationId);
         }, stoppingToken);
 
         // Listen to shipping created
@@ -117,8 +117,8 @@ public class OrderStatusListener : BackgroundService
             await UpdateShipmentRecordAsync(msg.OrderId,
                 msg.TrackingNumber, msg.EstimatedDispatch);
             Log.Information(
-                "[{Service}] Order {OrderId} completed! Tracking: {Tracking}",
-                _serviceName, msg.OrderId, msg.TrackingNumber);
+                "[{Service}] Order {OrderId} completed! Tracking: {Tracking}{CorrelationId}",
+                _serviceName, msg.OrderId, msg.TrackingNumber, msg.CorrelationId);
         }, stoppingToken);
 
         // Listen to shipping failed
@@ -128,8 +128,8 @@ public class OrderStatusListener : BackgroundService
             if (msg == null) return;
             await UpdateOrderAsync(msg.OrderId, OrderStatus.Failed, msg.Reason);
             Log.Warning(
-                "[{Service}] Order {OrderId} shipping failed: {Reason}",
-                _serviceName, msg.OrderId, msg.Reason);
+                "[{Service}] Order {OrderId} shipping failed: {Reason}{CorrelationId}",
+                _serviceName, msg.OrderId, msg.Reason, msg.CorrelationId);
         }, stoppingToken);
 
         Log.Information(

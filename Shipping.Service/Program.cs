@@ -1,9 +1,11 @@
 using Serilog;
 using Shipping.Service;
 
+
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.File("logs/shipping-.txt", rollingInterval: RollingInterval.Day)
+    .WriteTo.Seq("http://localhost:5341")
     .Enrich.FromLogContext()
     .Enrich.WithProperty("ServiceName", "Shipping.Service")
     .CreateLogger();

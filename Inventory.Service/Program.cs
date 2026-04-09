@@ -4,6 +4,7 @@ using Inventory.Service;
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.File("logs/inventory-.txt", rollingInterval: RollingInterval.Day)
+    .WriteTo.Seq("http://localhost:5341")
     .Enrich.FromLogContext()
     .Enrich.WithProperty("ServiceName", "Inventory.Service")
     .CreateLogger();

@@ -115,6 +115,11 @@ public class OrderApiService
             return await response.Content.ReadFromJsonAsync<CustomerDto>();
         return null;
     }
+    public async Task<List<OrderDto>> GetAllOrdersAsync()
+    {
+        return await _http.GetFromJsonAsync<List<OrderDto>>("api/orders")
+               ?? new List<OrderDto>();
+    }
 
     public async Task<OrderDto?> CheckoutAsync(
         Guid customerId,

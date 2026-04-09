@@ -1,139 +1,195 @@
 ﻿@page "/my-orders"
 @inject BlazorPortal.Services.OrderApiService ApiService
+@inject BlazorPortal.Services.AuthService AuthService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
-<h2>📋 My Orders</h2>
+<div style="max-width:1000px; margin:0 auto; padding:20px;">
+    <h2>📋 My Orders</h2>
 
-<div style="margin-bottom:16px;">
-    <p>Search by Customer ID, Name or Email:</p>
-
-    <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <input placeholder="Enter Name or Email"
-               @bind="_searchText"
-               style="width:280px; padding:6px;" />
-        <button @onclick="SearchByEmail">🔍 Search</button>
-    </div>
-
-    <div style="display:flex; gap:8px;">
-        <input placeholder="Or enter Customer ID (GUID)"
-               @bind="_customerId"
-               style="width:280px; padding:6px;" />
-        <button @onclick="LoadById">Load by ID</button>
-    </div>
-</div>
-
-@if (_loading)
-{
-    <p>Loading...</p>
-}
-else if (_error != null)
-{
-    <p style="color:red;">@_error</p>
-}
-else if (_orders != null)
-{
-    @if (!_orders.Any())
+    @if (!AuthService.IsLoggedIn)
     {
-        <p>No orders found.</p>
+        <div style="background:white; padding:30px; border-radius:12px;
+                        text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <p style="font-size:18px; color:gray;">
+                Please sign in to view your orders
+            </p>
+            <button @onclick='() => Nav.NavigateTo("/login")'
+                    style="padding:12px 30px; background:#e94560; color:white;
+                               border:none; border-radius:8px; font-size:16px;
+                               cursor:pointer; margin-top:12px;">
+                Sign In →
+            </button>
+        </div>
     }
     else
     {
-        <p>Found <strong>@_orders.Count</strong> order(s)</p>
-        <table style="width:100%; border-collapse:collapse;">
-            <thead>
-                <tr style="background:#f5f5f5;">
-                    <th style="text-align:left; padding:8px;">Order ID</th>
-                    <th style="text-align:left; padding:8px;">Customer</th>
-                    <th style="text-align:left; padding:8px;">Date</th>
-                    <th style="text-align:left; padding:8px;">Status</th>
-                    <th style="text-align:left; padding:8px;">Total</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var order in _orders)
-                {
-                    <tr style="border-bottom:1px solid #eee;">
-                        <td style="padding:8px;">#@order.ShortId</td>
-                        <td style="padding:8px;">@order.CustomerName</td>
-                        <td style="padding:8px;">
-                            @order.CreatedAt.ToShortDateString()
-                        </td>
-                        <td style="padding:8px;">
-                            <span style="@GetStatusStyle(order.Status)">
-                                @order.Status
-                            </span>
-                        </td>
-                        <td style="padding:8px;">€@order.TotalAmount</td>
-                        <td style="padding:8px;">
-                            <button @onclick="() => ViewOrder(order.Id)">
-                                View
-                            </button>
-                        </td>
+        <p style="color:gray; margin-bottom:20px;">
+            Welcome back, <strong>@AuthService.CurrentUser?.FullName</strong>!
+        </p>
+
+        @* Search section for non-logged in or searching other orders *@
+        <div style="background:white; padding:16px; border-radius:12px;
+                        margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <p style="margin:0 0 8px; font-weight:600;">
+                🔍 Search by Name or Email:
+            </p>
+            <div style="display:flex; gap:8px;">
+                <input placeholder="Enter name or email"
+                       @bind="_searchText"
+                       style="flex:1; padding:10px; border-radius:8px;
+                                  border:2px solid #e0e0e0; font-size:15px;" />
+                <button @onclick="SearchByEmail"
+                        style="padding:10px 20px; background:#1a1a2e;
+                                   color:white; border:none; border-radius:8px;
+                                   cursor:pointer;">
+                    🔍 Search
+                </button>
+            </div>
+            @if (_error != null)
+            {
+                <p style="color:red; margin-top:8px;">@_error</p>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <p>⏳ Loading your orders...</p>
+        }
+        else if (_orders != null && !_orders.Any())
+        {
+            <div style="background:white; padding:30px; border-radius:12px;
+                                text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <p style="font-size:18px; color:gray;">
+                    No orders found yet!
+                </p>
+                <button @onclick='() => Nav.NavigateTo("/")'
+                        style="padding:12px 30px; background:#e94560;
+                                       color:white; border:none; border-radius:8px;
+                                       font-size:16px; cursor:pointer; margin-top:12px;">
+                    Start Shopping 🛍️
+                </button>
+            </div>
+        }
+        else if (_orders != null)
+        {
+            <p style="color:gray;">
+                Found <strong>@_orders.Count</strong> order(s)
+            </p>
+            <table style="width:100%; border-collapse:collapse;
+                                  background:white; border-radius:12px;
+                                  overflow:hidden;
+                                  box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <thead>
+                    <tr style="background:#1a1a2e; color:white;">
+                        <th style="padding:14px; text-align:left;">Order ID</th>
+                        <th style="padding:14px; text-align:left;">Date</th>
+                        <th style="padding:14px; text-align:left;">Status</th>
+                        <th style="padding:14px; text-align:left;">Total</th>
+                        <th style="padding:14px;"></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var order in _orders)
+                    {
+                        <tr style="border-bottom:1px solid #f0f0f0;">
+                            <td style="padding:14px;">
+                                <strong>#@order.ShortId</strong>
+                            </td>
+                            <td style="padding:14px;">
+                                @order.CreatedAt.ToLocalTime()
+                                .ToString("dd MMM yyyy HH:mm")
+                            </td>
+                            <td style="padding:14px;">
+                                <span style="padding:4px 12px; border-radius:20px;
+                                                         color:white; font-size:13px;
+                                                         background:@GetStatusColor(order.Status);">
+                                    @order.Status
+                                </span>
+                            </td>
+                            <td style="padding:14px;">
+                                <strong>€@order.TotalAmount</strong>
+                            </td>
+                            <td style="padding:14px;">
+                                <button @onclick="() => ViewOrder(order.Id)"
+                                        style="padding:8px 16px; background:#3498db;
+                                                           color:white; border:none;
+                                                           border-radius:8px; cursor:pointer;">
+                                    View
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
     }
-}
+</div>
 
 @code {
-    private string _customerId = string.Empty;
-    private string _searchText = string.Empty;
     private List<BlazorPortal.Services.OrderDto>? _orders;
+    private string _searchText = string.Empty;
     private bool _loading = false;
     private string? _error;
 
-    private async Task LoadById()
+    protected override async Task OnInitializedAsync()
     {
-        if (string.IsNullOrWhiteSpace(_customerId))
+        // Auto load orders if customer is logged in
+        if (AuthService.IsLoggedIn && AuthService.CurrentUser?.CustomerId != null)
         {
-            _error = "Please enter a Customer ID.";
-            return;
+            await LoadCustomerOrders();
         }
 
-        if (!Guid.TryParse(_customerId, out var id))
+        AuthService.OnChange += async () =>
         {
-            _error = "Invalid Customer ID format.";
-            return;
-        }
-
-        _loading = true;
-        _error = null;
-        _orders = await ApiService.GetCustomerOrdersAsync(id);
-        _loading = false;
-    }
-
-    private async Task SearchByEmail()
-    {
-        if (string.IsNullOrWhiteSpace(_searchText))
-        {
-            _error = "Please enter a name or email.";
-            return;
-        }
-
-        _loading = true;
-        _error = null;
-        _orders = await ApiService.SearchOrdersByEmailAsync(_searchText);
-        _loading = false;
-    }
-
-    private void ViewOrder(Guid id) => Nav.NavigateTo("/orders/" + id);
-
-    private string GetStatusStyle(Shared.Contracts.Enums.OrderStatus status)
-    {
-        return status switch
-        {
-            Shared.Contracts.Enums.OrderStatus.Completed =>
-                "color:green; font-weight:bold;",
-            Shared.Contracts.Enums.OrderStatus.Failed =>
-                "color:red; font-weight:bold;",
-            Shared.Contracts.Enums.OrderStatus.PaymentApproved =>
-                "color:blue;",
-            Shared.Contracts.Enums.OrderStatus.PaymentFailed =>
-                "color:orange;",
-            _ => "color:gray;"
+            if (AuthService.IsLoggedIn &&
+                AuthService.CurrentUser?.CustomerId != null)
+            {
+                await LoadCustomerOrders();
+            }
+            await InvokeAsync(StateHasChanged);
         };
     }
+
+    private async Task LoadCustomerOrders()
+    {
+        if (AuthService.CurrentUser?.CustomerId == null) return;
+        _loading = true;
+        _orders = await ApiService
+            .GetCustomerOrdersAsync(AuthService.CurrentUser.CustomerId.Value);
+        _loading = false;
+    }
+
+  private async Task SearchByEmail()
+{
+    if (string.IsNullOrWhiteSpace(_searchText)) return;
+
+    // Security check - only allow searching your own email
+    if (AuthService.IsLoggedIn && 
+        !string.IsNullOrEmpty(AuthService.CurrentUser?.Email) &&
+        _searchText.ToLower() != AuthService.CurrentUser.Email.ToLower() &&
+        _searchText.ToLower() != AuthService.CurrentUser.FullName.ToLower())
+    {
+        _error = "⚠️ You can only search your own orders!";
+        return;
+    }
+
+    _loading = true;
+    _error = null;
+    _orders = await ApiService.SearchOrdersByEmailAsync(_searchText);
+    _loading = false;
+}
+    private void ViewOrder(Guid id) => Nav.NavigateTo("/orders/" + id);
+
+    private string GetStatusColor(Shared.Contracts.Enums.OrderStatus status)
+        => status switch
+        {
+            Shared.Contracts.Enums.OrderStatus.Completed => "#2ecc71",
+            Shared.Contracts.Enums.OrderStatus.Failed => "#e74c3c",
+            Shared.Contracts.Enums.OrderStatus.PaymentFailed => "#e74c3c",
+            Shared.Contracts.Enums.OrderStatus.InventoryFailed => "#e74c3c",
+            Shared.Contracts.Enums.OrderStatus.PaymentApproved => "#3498db",
+            Shared.Contracts.Enums.OrderStatus.ShippingCreated => "#3498db",
+            _ => "#f39c12"
+        };
 }

@@ -1,0 +1,229 @@
+﻿@page "/admin"
+@inject BlazorPortal.Services.AuthService AuthService
+@inject BlazorPortal.Services.OrderApiService ApiService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+@if (!AuthService.IsLoggedIn || !AuthService.IsAdmin)
+{
+    <p>Redirecting...</p>
+}
+else
+{
+    <div style="max-width:1200px; margin:0 auto; padding:20px;">
+
+        <div style="display:flex; justify-content:space-between;
+                        align-items:center; margin-bottom:24px;">
+            <h2>⚙️ Admin Dashboard</h2>
+            <span style="color:gray;">
+                Welcome, <strong>@AuthService.CurrentUser?.FullName</strong>
+            </span>
+        </div>
+
+        @if (_loading)
+        {
+            <p>⏳ Loading dashboard data...</p>
+        }
+        else
+        {
+            @* Summary Cards *@
+            <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:30px;">
+                <div style="flex:1; min-width:150px; background:#3498db;
+                                    color:white; padding:20px; border-radius:12px;
+                                    text-align:center;">
+                    <div style="font-size:32px; font-weight:800;">@_orders.Count</div>
+                    <div>Total Orders</div>
+                </div>
+                <div style="flex:1; min-width:150px; background:#2ecc71;
+                                    color:white; padding:20px; border-radius:12px;
+                                    text-align:center;">
+                    <div style="font-size:32px; font-weight:800;">
+                        @_orders.Count(o => o.Status ==
+                        Shared.Contracts.Enums.OrderStatus.Completed)
+            </div>
+            <div>Completed</div>
+        </div>
+        <div style="flex:1; min-width:150px; background:#e74c3c;
+                            color:white; padding:20px; border-radius:12px;
+                            text-align:center;">
+            <div style="font-size:32px; font-weight:800;">
+                @_orders.Count(o =>
+                                o.Status == Shared.Contracts.Enums.OrderStatus.Failed ||
+                                o.Status == Shared.Contracts.Enums.OrderStatus.PaymentFailed ||
+                                o.Status == Shared.Contracts.Enums.OrderStatus.InventoryFailed)
+            </div>
+            <div>Failed</div>
+        </div>
+        <div style="flex:1; min-width:150px; background:#f39c12;
+                            color:white; padding:20px; border-radius:12px;
+                            text-align:center;">
+            <div style="font-size:32px; font-weight:800;">
+                @_orders.Count(o =>
+                                o.Status != Shared.Contracts.Enums.OrderStatus.Completed &&
+                                o.Status != Shared.Contracts.Enums.OrderStatus.Failed &&
+                                o.Status != Shared.Contracts.Enums.OrderStatus.PaymentFailed &&
+                                o.Status != Shared.Contracts.Enums.OrderStatus.InventoryFailed)
+            </div>
+            <div>Pending</div>
+        </div>
+        <div style="flex:1; min-width:150px; background:#9b59b6;
+                            color:white; padding:20px; border-radius:12px;
+                            text-align:center;">
+            <div style="font-size:32px; font-weight:800;">
+                €@_orders
+                .Where(o => o.Status ==
+                Shared.Contracts.Enums.OrderStatus.Completed)
+                .Sum(o => o.TotalAmount).ToString("F0")
+            </div>
+            <div>Revenue</div>
+        </div>
+    </div>
+
+    @* Filter *@
+    <div style="background:white; padding:16px; border-radius:12px;
+                        margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+                        display:flex; gap:12px; align-items:center;">
+        <label style="font-weight:600;">Filter:</label>
+        <select @onchange="FilterOrders"
+                style="padding:8px 12px; border-radius:8px;
+                               border:2px solid #e0e0e0; font-size:14px;">
+            <option value="">All Orders</option>
+            <option value="Submitted">Submitted</option>
+            <option value="InventoryConfirmed">Inventory Confirmed</option>
+            <option value="InventoryFailed">Inventory Failed</option>
+            <option value="PaymentApproved">Payment Approved</option>
+            <option value="PaymentFailed">Payment Failed</option>
+            <option value="ShippingCreated">Shipping Created</option>
+            <option value="Completed">Completed</option>
+            <option value="Failed">Failed</option>
+        </select>
+        <button @onclick="LoadOrders"
+                style="padding:8px 16px; background:#1a1a2e;
+                               color:white; border:none; border-radius:8px;
+                               cursor:pointer;">
+            🔄 Refresh
+        </button>
+        <a href="http://localhost:3000" target="_blank"
+           style="padding:8px 16px; background:#e94560; color:white;
+                          border-radius:8px; text-decoration:none;
+                          font-size:14px;">
+            📊 Full Admin Dashboard
+        </a>
+    </div>
+
+    @* Orders Table *@
+    <div style="background:white; border-radius:12px;
+                        box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="background:#1a1a2e; color:white;">
+                    <th style="padding:14px; text-align:left;">Order ID</th>
+                    <th style="padding:14px; text-align:left;">Customer</th>
+                    <th style="padding:14px; text-align:left;">Date</th>
+                    <th style="padding:14px; text-align:left;">Status</th>
+                    <th style="padding:14px; text-align:left;">Payment</th>
+                    <th style="padding:14px; text-align:left;">Total</th>
+                    <th style="padding:14px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var order in _filteredOrders)
+                        {
+                            <tr style="border-bottom:1px solid #f0f0f0;">
+                                <td style="padding:12px;">
+                                    <strong>#@order.ShortId</strong>
+                                </td>
+                                <td style="padding:12px;">@order.CustomerName</td>
+                                <td style="padding:12px;">
+                                    @order.CreatedAt.ToLocalTime()
+                                    .ToString("dd MMM HH:mm")
+                                </td>
+                                <td style="padding:12px;">
+                                    <span style="padding:3px 10px; border-radius:20px;
+                                                             color:white; font-size:12px;
+                                                             background:@GetStatusColor(order.Status);">
+                                        @order.Status
+                                    </span>
+                                </td>
+                                <td style="padding:12px;">
+                                    @if (order.PaymentRecord == null)
+                                    {
+                                        <span style="color:orange;">⏳ Pending</span>
+                                    }
+                                    else if (order.PaymentRecord.IsApproved)
+                                    {
+                                        <span style="color:green;">✅ Approved</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:red;">❌ Failed</span>
+                                    }
+                                </td>
+                                <td style="padding:12px;">
+                                    <strong>€@order.TotalAmount</strong>
+                                </td>
+                                <td style="padding:12px;">
+                                    <button @onclick="() => ViewOrder(order.Id)"
+                                            style="padding:6px 14px; background:#3498db;
+                                                               color:white; border:none;
+                                                               border-radius:8px; cursor:pointer;">
+                                        View
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<BlazorPortal.Services.OrderDto> _orders = new();
+    private List<BlazorPortal.Services.OrderDto> _filteredOrders = new();
+    private bool _loading = true;
+    private string _selectedStatus = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthService.IsLoggedIn || !AuthService.IsAdmin)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        _loading = true;
+        _orders = await ApiService.GetAllOrdersAsync();
+        _filteredOrders = _orders;
+        _loading = false;
+    }
+
+    private void FilterOrders(ChangeEventArgs e)
+    {
+        _selectedStatus = e.Value?.ToString() ?? "";
+        if (string.IsNullOrEmpty(_selectedStatus))
+            _filteredOrders = _orders;
+        else
+            _filteredOrders = _orders
+                .Where(o => o.Status.ToString() == _selectedStatus)
+                .ToList();
+    }
+
+    private void ViewOrder(Guid id) => Nav.NavigateTo("/orders/" + id);
+
+    private string GetStatusColor(Shared.Contracts.Enums.OrderStatus status)
+        => status switch
+        {
+            Shared.Contracts.Enums.OrderStatus.Completed => "#2ecc71",
+            Shared.Contracts.Enums.OrderStatus.Failed => "#e74c3c",
+            Shared.Contracts.Enums.OrderStatus.PaymentFailed => "#e74c3c",
+            Shared.Contracts.Enums.OrderStatus.InventoryFailed => "#e74c3c",
+            Shared.Contracts.Enums.OrderStatus.PaymentApproved => "#3498db",
+            _ => "#f39c12"
+        };
+}

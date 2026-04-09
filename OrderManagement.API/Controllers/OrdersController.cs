@@ -53,4 +53,28 @@ public class OrdersController : ControllerBase
         if (result == null) return NotFound();
         return Ok(new { result.Id, result.Status, result.FailureReason });
     }
+    // GET /api/orders/status/{status}
+    [HttpGet("status/{status}")]
+    public async Task<ActionResult<List<OrderDto>>> GetByStatus(OrderStatus status)
+    {
+        var result = await _mediator.Send(new GetOrdersByStatusQuery(status));
+        return Ok(result);
+    }
+
+    // GET /api/orders/dashboard/summary
+    [HttpGet("dashboard/summary")]
+    public async Task<ActionResult<DashboardSummaryDto>> GetDashboardSummary()
+    {
+        var result = await _mediator.Send(new GetDashboardSummaryQuery());
+        return Ok(result);
+    }
+
+    // DELETE /api/orders/{id}
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> CancelOrder(Guid id)
+    {
+        var result = await _mediator.Send(new CancelOrderCommand(id));
+        if (!result) return BadRequest("Order cannot be cancelled");
+        return Ok(new { message = "Order cancelled successfully" });
+    }
 }
