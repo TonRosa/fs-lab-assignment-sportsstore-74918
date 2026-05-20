@@ -132,25 +132,40 @@
     private bool _loading = false;
     private string? _error;
 
-    protected override async Task OnInitializedAsync()
-    {
-        // Auto load orders if customer is logged in
-        if (AuthService.IsLoggedIn && AuthService.CurrentUser?.CustomerId != null)
-        {
-            await LoadCustomerOrders();
-        }
+    // protected override async Task OnInitializedAsync()
+    // {
+    //    // Auto load orders if customer is logged in
+    //     if (AuthService.IsLoggedIn && AuthService.CurrentUser?.CustomerId != null)
+    //     {
+    //         await LoadCustomerOrders();
+    //     }
 
-        AuthService.OnChange += async () =>
+    //     AuthService.OnChange += async () =>
+    //     {
+    //         if (AuthService.IsLoggedIn &&
+    //             AuthService.CurrentUser?.CustomerId != null)
+    //         {
+    //             await LoadCustomerOrders();
+    //         }
+    //         await InvokeAsync(StateHasChanged);
+    //     };
+    // }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
         {
+            await AuthService.InitializeAsync();
+
             if (AuthService.IsLoggedIn &&
                 AuthService.CurrentUser?.CustomerId != null)
             {
                 await LoadCustomerOrders();
             }
-            await InvokeAsync(StateHasChanged);
-        };
-    }
 
+            StateHasChanged();
+        }
+    }
     private async Task LoadCustomerOrders()
     {
         if (AuthService.CurrentUser?.CustomerId == null) return;

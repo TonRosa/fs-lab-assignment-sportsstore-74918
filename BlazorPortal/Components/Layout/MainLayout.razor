@@ -25,8 +25,7 @@
             <span style="color:white; font-size:14px; margin-right:8px;">
                 👋 @AuthService.CurrentUser?.FullName
             </span>
-            <button @onclick="AuthService.Logout"
-                    style="padding:8px 16px; background:#e94560; color:white;
+            <button @onclick="async () => await AuthService.LogoutAsync()" style="padding:8px 16px; background:#e94560; color:white;
                        border:none; border-radius:20px; cursor:pointer;
                        font-size:14px;">
                 Logout

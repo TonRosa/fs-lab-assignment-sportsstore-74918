@@ -26,6 +26,39 @@ public class ProductsController : ControllerBase
         var products = await _db.Products.ToListAsync();
         return Ok(_mapper.Map<List<ProductDto>>(products));
     }
+    // POST /api/products
+    [HttpPost]
+    public async Task<ActionResult<ProductDto>> Create(
+        [FromBody] CreateProductDto dto)
+    {
+        var product = new OrderManagement.API.Models.Product
+        {
+            Name = dto.Name,
+            Description = dto.Description,
+            Price = dto.Price,
+            Stock = dto.Stock,
+            Category = dto.Category
+        };
+        _db.Products.Add(product);
+        await _db.SaveChangesAsync();
+        return Ok(_mapper.Map<ProductDto>(product));
+    }
+
+    // PUT /api/products/{id}
+    [HttpPut("{id}")]
+    public async Task<ActionResult> Update(long id,
+        [FromBody] CreateProductDto dto)
+    {
+        var product = await _db.Products.FindAsync(id);
+        if (product == null) return NotFound();
+        product.Name = dto.Name;
+        product.Description = dto.Description;
+        product.Price = dto.Price;
+        product.Stock = dto.Stock;
+        product.Category = dto.Category;
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
 
     // GET /api/products/{id}
     [HttpGet("{id}")]

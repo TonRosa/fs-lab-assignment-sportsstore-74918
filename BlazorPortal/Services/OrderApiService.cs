@@ -142,6 +142,15 @@ public class OrderApiService
             return await response.Content.ReadFromJsonAsync<OrderDto>();
         return null;
     }
+    public async Task AddProductAsync(object form)
+    {
+        await _http.PostAsJsonAsync("api/products", form);
+    }
+
+    public async Task UpdateProductAsync(long id, object form)
+    {
+        await _http.PutAsJsonAsync($"api/products/{id}", form);
+    }
 }
 
 public class ShippingAddressInput

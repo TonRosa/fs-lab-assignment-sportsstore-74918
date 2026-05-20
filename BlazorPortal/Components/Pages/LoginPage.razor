@@ -15,7 +15,6 @@
             <p style="color:gray;">Sign in to your account</p>
         </div>
 
-        @* Tab Switch *@
         <div style="display:flex; margin-bottom:24px; border-radius:8px;
                     overflow:hidden; border:2px solid #1a1a2e;">
             <button @onclick='() => _isLogin = true'
@@ -36,48 +35,46 @@
 
         @if (_isLogin)
         {
-            @* Login Form *@
             <input placeholder="Email address"
                    @bind="_email" type="email"
                    style="width:100%; padding:12px; margin-bottom:12px;
-                              border-radius:8px; border:2px solid #e0e0e0;
-                              font-size:15px;" />
+                          border-radius:8px; border:2px solid #e0e0e0;
+                          font-size:15px;" />
             <input placeholder="Password"
                    @bind="_password" type="password"
                    style="width:100%; padding:12px; margin-bottom:20px;
-                              border-radius:8px; border:2px solid #e0e0e0;
-                              font-size:15px;" />
+                          border-radius:8px; border:2px solid #e0e0e0;
+                          font-size:15px;" />
             <button @onclick="HandleLogin"
                     disabled="@_loading"
                     style="width:100%; padding:14px; background:#e94560;
-                               color:white; border:none; border-radius:8px;
-                               font-size:16px; font-weight:600; cursor:pointer;">
+                           color:white; border:none; border-radius:8px;
+                           font-size:16px; font-weight:600; cursor:pointer;">
                 @(_loading ? "Signing in..." : "Sign In →")
             </button>
         }
         else
         {
-            @* Register Form *@
             <input placeholder="Full Name"
                    @bind="_fullName"
                    style="width:100%; padding:12px; margin-bottom:12px;
-                              border-radius:8px; border:2px solid #e0e0e0;
-                              font-size:15px;" />
+                          border-radius:8px; border:2px solid #e0e0e0;
+                          font-size:15px;" />
             <input placeholder="Email address"
                    @bind="_email" type="email"
                    style="width:100%; padding:12px; margin-bottom:12px;
-                              border-radius:8px; border:2px solid #e0e0e0;
-                              font-size:15px;" />
+                          border-radius:8px; border:2px solid #e0e0e0;
+                          font-size:15px;" />
             <input placeholder="Password (min 6 characters)"
                    @bind="_password" type="password"
                    style="width:100%; padding:12px; margin-bottom:20px;
-                              border-radius:8px; border:2px solid #e0e0e0;
-                              font-size:15px;" />
+                          border-radius:8px; border:2px solid #e0e0e0;
+                          font-size:15px;" />
             <button @onclick="HandleRegister"
                     disabled="@_loading"
                     style="width:100%; padding:14px; background:#2ecc71;
-                               color:white; border:none; border-radius:8px;
-                               font-size:16px; font-weight:600; cursor:pointer;">
+                           color:white; border:none; border-radius:8px;
+                           font-size:16px; font-weight:600; cursor:pointer;">
                 @(_loading ? "Creating account..." : "Create Account →")
             </button>
         }
@@ -89,9 +86,7 @@
             </p>
         }
 
-        @* Admin hint *@
-        <p style="text-align:center; color:gray; font-size:12px;
-                  margin-top:20px;">
+        <p style="text-align:center; color:gray; font-size:12px; margin-top:20px;">
             Admin? Use admin@sportstore.com / Admin123!
         </p>
     </div>
@@ -117,18 +112,31 @@
         _loading = true;
         _error = null;
 
-        var success = await AuthService.LoginAsync(_email, _password);
-        if (success)
+        try
         {
-            if (AuthService.IsAdmin)
-                Nav.NavigateTo("/admin");
+            var success = await AuthService.LoginAsync(_email, _password);
+
+            if (success)
+            {
+                _error = $"Login OK! IsAdmin={AuthService.IsAdmin} " +
+                         $"Role={AuthService.CurrentUser?.Role}";
+                await Task.Delay(2000);
+
+                if (AuthService.IsAdmin)
+                    Nav.NavigateTo("/admin", forceLoad: true);
+                else
+                    Nav.NavigateTo("/", forceLoad: true);
+            }
             else
-                Nav.NavigateTo("/");
+            {
+                _error = $"Login FAILED for {_email}";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _error = "Invalid email or password.";
+            _error = $"Exception: {ex.Message}";
         }
+
         _loading = false;
     }
 
@@ -160,4 +168,6 @@
 
         _loading = false;
     }
+
+
 }

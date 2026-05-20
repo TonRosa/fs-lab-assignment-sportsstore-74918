@@ -3,6 +3,7 @@
 @inject BlazorPortal.Services.CartState Cart
 @inject NavigationManager Nav
 @rendermode InteractiveServer
+@inject BlazorPortal.Services.AuthService AuthService
 
 <h2>🛍️ Products</h2>
 
@@ -39,8 +40,8 @@ else
                 {
                     <p style="color:@(remaining < 10 ? "orange" : "green");
                                           font-size:13px;">
-                        @(remaining < 10 ? $"⚠️ Only {remaining} left!"
-                                    : $"✅ In Stock ({remaining})")
+                        @(remaining < 10 ? $" Only {remaining} left!"
+                                    : $" In Stock ({remaining})")
         </p>
 
                     <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
@@ -175,14 +176,28 @@ else
     private string? _errorMessage;
     private string? _successMessage;
     private bool _showCart = false;
+    private List<string> _categories = new();
 
     protected override async Task OnInitializedAsync()
     {
-        _products = await ApiService.GetProductsAsync();
-        if (_products != null)
+        try
         {
-            foreach (var p in _products)
-                _quantities[p.Id] = 1;
+            _products = await ApiService.GetProductsAsync();
+            _categories = _products?
+                .Select(p => p.Category)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToList() ?? new();
+
+            // Initialize quantities for all products
+            if (_products != null)
+                foreach (var p in _products)
+                    _quantities[p.Id] = 1;
+        }
+        catch (Exception)
+        {
+            _products = new List<BlazorPortal.Services.ProductDto>();
+            _errorMessage = "Could not connect to the API.";
         }
         Cart.OnChange += StateHasChanged;
     }

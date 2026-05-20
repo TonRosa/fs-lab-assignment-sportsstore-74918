@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using BlazorPortal.Data;
@@ -66,13 +66,23 @@ using (var scope = app.Services.CreateScope())
     var admin = await userManager.FindByEmailAsync("admin@sportstore.com");
     if (admin == null)
     {
-        await userManager.CreateAsync(new BlazorPortal.Data.AppUser
+        var result = await userManager.CreateAsync(new BlazorPortal.Data.AppUser
         {
             UserName = "admin@sportstore.com",
             Email = "admin@sportstore.com",
             FullName = "Admin",
             Role = "Admin"
         }, "Admin123!");
+
+        if (result.Succeeded)
+            Log.Information("✅ Admin user created successfully");
+        else
+            Log.Error("❌ Failed to create admin: {Errors}",
+                string.Join(", ", result.Errors.Select(e => e.Description)));
+    }
+    else
+    {
+        Log.Information("✅ Admin user already exists");
     }
 }
 
